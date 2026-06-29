@@ -2,6 +2,7 @@
 #include <GLFW/glfw3.h>
 
 #include <iostream>
+#include <vector>
 
 #include "shader.h"
 
@@ -10,6 +11,12 @@
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void processInput(GLFWwindow *window);
+
+struct Triangle {
+    float a[4];
+    float b[4];
+    float c[4];
+};
 
 int main() {
     glfwInit();
@@ -61,7 +68,35 @@ int main() {
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-    glBindVertexArray(0);
+    // glBindVertexArray(0);
+
+    std::vector<Triangle> triangles;
+
+    Triangle tmp_triangle;
+
+    tmp_triangle.a[0] =  0.0;
+    tmp_triangle.a[1] =  0.0;
+    tmp_triangle.a[2] =  0.0;
+    tmp_triangle.a[3] =  0.0;
+
+    tmp_triangle.b[0] =  0.0;
+    tmp_triangle.b[1] =  0.0;
+    tmp_triangle.b[2] = -1.0;
+    tmp_triangle.b[3] =  0.0;
+
+    tmp_triangle.c[0] = -1.0;
+    tmp_triangle.c[1] =  0.0;
+    tmp_triangle.c[2] =  0.0;
+    tmp_triangle.c[3] =  0.0;
+
+    triangles.push_back(tmp_triangle);
+
+    GLuint triangle_ssbo;
+    glGenBuffers(1, &triangle_ssbo);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, triangle_ssbo);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, triangles.size() * sizeof(Triangle), triangles.data(), GL_DYNAMIC_COPY);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, triangle_ssbo);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
     while (!glfwWindowShouldClose(window)) {
         processInput(window);

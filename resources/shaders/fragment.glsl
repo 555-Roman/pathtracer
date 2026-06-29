@@ -1,4 +1,4 @@
-#version 330 core
+#version 460 core
 
 in vec3 originalRayDir;
 
@@ -9,9 +9,10 @@ struct Ray {
     vec3 dir;
 };
 
-struct Sphere {
-    vec3 origin;
-    float radius;
+struct Triangle {
+    vec4 a;
+    vec4 b;
+    vec4 c;
 };
 
 struct HitRecord {
@@ -21,23 +22,42 @@ struct HitRecord {
     vec3 normal;
 };
 
-HitRecord intersectSphere(Ray ray, Sphere sphere) {
+layout (std430, binding = 0) buffer TriangleBuffer {
+    Triangle triangles[];
+};
+
+HitRecord intersectTriangle(Ray ray, Triangle triangle) {
     HitRecord record;
-    vec3 offsetRayOrigin = ray.origin - sphere.origin;
-    float a = dot(ray.dir, ray.dir);
-    float b = 2 * dot(offsetRayOrigin, ray.dir);
-    float c = dot(offsetRayOrigin, offsetRayOrigin) - sphere.radius * sphere.radius;
 
-    float discriminant = b * b - 4 * a * c;
+    vec3 edge1 = triangle.b.xyz - triangle.a.xyz;
+    vec3 edge2 = triangle.c.xyz - triangle.a.xyz;
 
-    if (discriminant >= 0) {
-        float dist = (-b - sqrt(discriminant)) / (2 * a);
-        if (dist >= 0) {
-            record.hit = true;
-            record.t = dist;
-            record.pos = ray.origin + ray.dir * dist;
-            record.normal = normalize(record.pos - sphere.origin);
-        }
+    vec3 normal = normalize(cross(edge1, edge2));
+    if (dot(normal, ray.dir) > 0) return record;
+
+    vec3 ray_cross_e2 = cross(ray.dir, edge2);
+    float det = dot(edge1, ray_cross_e2);
+
+    if (abs(det) < 0) return record;
+
+    float inv_det = 1.0 / det;
+    vec3 s = ray.origin - triangle.a.xyz;
+    float u = inv_det * dot(s, ray_cross_e2);
+
+    if (u < -0 || u - 1 > 0) return record;
+
+    vec3 s_cross_e1 = cross(s, edge1);
+    float v = inv_det * dot(ray.dir, s_cross_e1);
+
+    if (v < 0 || u + v - 1 > 0) return record;
+
+    float t = inv_det * dot(edge2, s_cross_e1);
+
+    if (t > 0) {
+        record.hit = true;
+        record.t = t;
+        record.pos = ray.origin + ray.dir * t;
+        record.normal = normal;
     }
     return record;
 }
@@ -47,11 +67,9 @@ void main() {
 
     Ray ray = {vec3(-0.5, 1.0, 3.0), normalize(originalRayDir)};
 
-    Sphere sphere = {vec3(0.0, 0.0, 0.0), 1.0};
-
-    HitRecord record = intersectSphere(ray, sphere);
+    HitRecord record = intersectTriangle(ray, triangles[0]);
 
     if (record.hit) {
-        FragColor = vec4(1.0);
+        FragColor = vec4(record.normal, 1.0);
     }
 }
