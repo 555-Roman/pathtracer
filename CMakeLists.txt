@@ -32,6 +32,7 @@ set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 
 add_subdirectory(thirdparty/glfw-3.4)
 add_subdirectory(thirdparty/glad)
+add_subdirectory(thirdParty/glm-1.0.3)
 
 
 file(GLOB_RECURSE MY_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
@@ -71,4 +72,4 @@ target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC "${CMAKE_CURRENT_SOURC
 target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include/platform/")
 
 
-target_link_libraries("${CMAKE_PROJECT_NAME}" PRIVATE glfw glad)
+target_link_libraries("${CMAKE_PROJECT_NAME}" PRIVATE glfw glad glm)

@@ -4,7 +4,9 @@
 #include <iostream>
 #include <vector>
 
+#include "include.h"
 #include "shader.h"
+#include "objImport.h"
 
 #define WINDOW_WIDTH 640
 #define WINDOW_HEIGHT 480
@@ -12,11 +14,7 @@
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void processInput(GLFWwindow *window);
 
-struct Triangle {
-    float a[4];
-    float b[4];
-    float c[4];
-};
+std::vector<Triangle> triangles;
 
 int main() {
     glfwInit();
@@ -24,8 +22,8 @@ int main() {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    GLFWwindow* window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Pathtracer", NULL, NULL);
-    if (window == NULL) {
+    GLFWwindow* window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Pathtracer", nullptr, nullptr);
+    if (window == nullptr) {
         std::cout << "Failed to create GLFW window" << std::endl;
         glfwTerminate();
         return -1;
@@ -68,28 +66,10 @@ int main() {
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-    // glBindVertexArray(0);
-
-    std::vector<Triangle> triangles;
-
-    Triangle tmp_triangle;
-
-    tmp_triangle.a[0] =  0.0;
-    tmp_triangle.a[1] =  0.0;
-    tmp_triangle.a[2] =  0.0;
-    tmp_triangle.a[3] =  0.0;
-
-    tmp_triangle.b[0] =  0.0;
-    tmp_triangle.b[1] =  0.0;
-    tmp_triangle.b[2] = -1.0;
-    tmp_triangle.b[3] =  0.0;
-
-    tmp_triangle.c[0] = -1.0;
-    tmp_triangle.c[1] =  0.0;
-    tmp_triangle.c[2] =  0.0;
-    tmp_triangle.c[3] =  0.0;
-
-    triangles.push_back(tmp_triangle);
+    std::vector<Triangle> cubeTriangles = importTriangles(RESOURCES_PATH "models/obj/cube.obj");
+    for (uint i = 0; i < cubeTriangles.size(); i++) {
+        triangles.push_back(cubeTriangles[i]);
+    }
 
     GLuint triangle_ssbo;
     glGenBuffers(1, &triangle_ssbo);
@@ -101,6 +81,7 @@ int main() {
     while (!glfwWindowShouldClose(window)) {
         processInput(window);
 
+        program.setUniform1ui("triangleCount", triangles.size());
         program.use();
         glBindVertexArray(VAO);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);

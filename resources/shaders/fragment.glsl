@@ -22,6 +22,7 @@ struct HitRecord {
     vec3 normal;
 };
 
+uniform uint triangleCount;
 layout (std430, binding = 0) buffer TriangleBuffer {
     Triangle triangles[];
 };
@@ -33,7 +34,7 @@ HitRecord intersectTriangle(Ray ray, Triangle triangle) {
     vec3 edge2 = triangle.c.xyz - triangle.a.xyz;
 
     vec3 normal = normalize(cross(edge1, edge2));
-    if (dot(normal, ray.dir) > 0) return record;
+//    if (dot(normal, ray.dir) > 0) return record;
 
     vec3 ray_cross_e2 = cross(ray.dir, edge2);
     float det = dot(edge1, ray_cross_e2);
@@ -62,13 +63,27 @@ HitRecord intersectTriangle(Ray ray, Triangle triangle) {
     return record;
 }
 
+HitRecord intersectScene(Ray ray) {
+    HitRecord closestRecord;
+    float closestT = 1.0 / 0.0;
+
+    for (uint i = 0; i < triangleCount; i++) {
+        HitRecord record = intersectTriangle(ray, triangles[i]);
+        if (record.hit && record.t < closestT) {
+            closestRecord = record;
+            closestT = record.t;
+        }
+    }
+
+    return closestRecord;
+}
+
 void main() {
-    FragColor = vec4(normalize(originalRayDir), 1.0);
+    FragColor = vec4(1.0);
 
-    Ray ray = {vec3(-0.5, 1.0, 3.0), normalize(originalRayDir)};
+    Ray ray = {vec3(-1.5, 1.1, 5.0), normalize(originalRayDir)};
 
-    HitRecord record = intersectTriangle(ray, triangles[0]);
-
+    HitRecord record = intersectScene(ray);
     if (record.hit) {
         FragColor = vec4(record.normal, 1.0);
     }
