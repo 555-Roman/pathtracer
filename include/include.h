@@ -5,6 +5,11 @@
 
 using namespace glm;
 
+struct Material {
+    vec3 colour;
+    float padding;
+};
+
 struct Triangle {
     vec3 a;
     float padding_a;
@@ -12,6 +17,7 @@ struct Triangle {
     float padding_b;
     vec3 c;
     float padding_c;
+    Material material;
 };
 
 #endif //PATHTRACER_INCLUDE_H

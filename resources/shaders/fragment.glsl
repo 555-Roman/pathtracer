@@ -9,10 +9,16 @@ struct Ray {
     vec3 dir;
 };
 
+struct Material {
+    vec3 colour;
+    float padding;
+};
+
 struct Triangle {
     vec4 a;
     vec4 b;
     vec4 c;
+    Material material;
 };
 
 struct HitRecord {
@@ -20,6 +26,7 @@ struct HitRecord {
     float t;
     vec3 pos;
     vec3 normal;
+    Material material;
 };
 
 uniform uint triangleCount;
@@ -60,6 +67,7 @@ HitRecord intersectTriangle(Ray ray, Triangle triangle) {
         record.t = t;
         record.pos = ray.origin + ray.dir * t;
         record.normal = normal;
+        record.material = triangle.material;
     }
     return record;
 }
@@ -80,13 +88,20 @@ HitRecord intersectScene(Ray ray) {
     return closestRecord;
 }
 
-void main() {
-    FragColor = vec4(1.0);
-
-    Ray ray = {vec3(-1.5, 1.1, 5.0), normalize(originalRayDir)};
+vec3 trace(Ray ray) {
+    vec3 rayColour = vec3(1.0);
 
     HitRecord record = intersectScene(ray);
-    if (record.hit) {
-        FragColor = vec4(record.normal, 1.0);
-    }
+
+    rayColour = record.material.colour;
+
+    return rayColour;
+}
+
+void main() {
+    Ray ray = {vec3(-1.5, 1.1, 5.0), normalize(originalRayDir)};
+
+    vec3 rayColour = trace(ray);
+
+    FragColor = vec4(rayColour, 1.0);
 }

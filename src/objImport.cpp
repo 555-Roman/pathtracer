@@ -1,5 +1,7 @@
 #include "objImport.h"
 
+#include <glm/gtc/random.hpp>
+
 std::vector<Triangle> importTriangles(const char* filePath) {
     std::vector<Triangle> outTriangles;
     std::vector<vec3> vertices;
@@ -31,6 +33,8 @@ std::vector<Triangle> importTriangles(const char* filePath) {
         tri.a = vertices[idx0];
         tri.b = vertices[idx1];
         tri.c = vertices[idx2];
+        Material material = {linearRand(vec3(0.2, 0.2, 0.2), vec3(0.9, 0.9, 0.9))};
+        tri.material = material;
         outTriangles.push_back(tri);
     }
 
