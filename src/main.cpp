@@ -68,9 +68,14 @@ int main() {
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-    std::vector<Triangle> cubeTriangles = importTriangles(RESOURCES_PATH "models/obj/monkey.obj");
-    for (uint i = 0; i < cubeTriangles.size(); i++) {
-        triangles.push_back(cubeTriangles[i]);
+    for (Triangle t : importTriangles(RESOURCES_PATH "models/obj/cube.obj", vec3(-2.0, 1.0, -1.5), 1.0, Material{vec3(1.0), 0.0, vec3(1.0), 10.0})) {
+        triangles.push_back(t);
+    }
+    for (Triangle t : importTriangles(RESOURCES_PATH "models/obj/cube.obj", vec3(0.0, -6.0, 0.0), 5.0, Material{vec3(0.9, 0.1, 0.1), 0.0, vec3(0.0), 0.0})) {
+        triangles.push_back(t);
+    }
+    for (Triangle t : importTriangles(RESOURCES_PATH "models/obj/cube.obj", vec3(0.0, -0.5, 0.0), 0.5, Material{vec3(0.1, 0.9, 0.1), 0.0, vec3(0.0), 0.0})) {
+        triangles.push_back(t);
     }
 
     GLuint triangle_ssbo;
@@ -98,6 +103,8 @@ int main() {
 }
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
+    std::cout << "framebuffer size callback" << std::endl;
+    std::cout << "width: " << width << " height: " << height << std::endl;
     glViewport(0, 0, width, height);
     WINDOW_WIDTH = width;
     WINDOW_HEIGHT = height;

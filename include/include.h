@@ -8,6 +8,8 @@ using namespace glm;
 struct Material {
     vec3 colour;
     float padding;
+    vec3 emissionColour;
+    float emissionStrength;
 };
 
 struct Triangle {

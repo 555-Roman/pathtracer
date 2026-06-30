@@ -12,6 +12,8 @@ struct Ray {
 struct Material {
     vec3 colour;
     float padding;
+    vec3 emissionColour;
+    float emissionStrength;
 };
 
 struct Triangle {
@@ -33,6 +35,23 @@ uniform uint triangleCount;
 layout (std430, binding = 0) buffer TriangleBuffer {
     Triangle triangles[];
 };
+
+uint rngState;
+float randomUniform() {
+    rngState = rngState * 747796405u + 2891336453u;
+    uint result = ((rngState >> ((rngState >> 28u) + 4u)) ^ rngState) * 277803737u;
+    result = (result >> 22u) ^ result;
+    return result / 4294967294.0;
+}
+vec3 randomSphere() {
+    float z = 1 - 2 * randomUniform();
+    float r = sqrt(1 - z*z);
+    float phi = 2 * 3.1415926 * randomUniform();
+    return vec3(r * cos(phi), r * sin(phi), z);
+}
+vec3 randomCosineHemisphere(vec3 normal) {
+    return normalize(normal + randomSphere());
+}
 
 HitRecord intersectTriangle(Ray ray, Triangle triangle) {
     HitRecord record;
@@ -88,20 +107,43 @@ HitRecord intersectScene(Ray ray) {
     return closestRecord;
 }
 
-vec3 trace(Ray ray) {
+vec3 trace(Ray cameraRay) {
+    Ray ray = cameraRay;
+    vec3 incomingLight = vec3(0.0);
     vec3 rayColour = vec3(1.0);
 
-    HitRecord record = intersectScene(ray);
+    uint maxBounces = 5;
+    for (uint bounce = 0; bounce <= maxBounces; bounce++) {
+        HitRecord record = intersectScene(ray);
 
-    rayColour = record.material.colour;
+        if (record.hit) {
+            ray.origin = record.pos + record.normal * 0.001;
+            ray.dir = randomCosineHemisphere(record.normal);
 
-    return rayColour;
+            incomingLight += (record.material.emissionColour * record.material.emissionStrength) * rayColour;
+            rayColour *= record.material.colour;
+        } else {
+            break;
+        }
+    }
+
+    return incomingLight;
 }
 
+uniform uvec2 halfScreenSize;
+
 void main() {
-    Ray ray = {vec3(-1.5, 1.1, 5.0), normalize(originalRayDir)};
+    uvec2 FragCoord = uvec2(gl_FragCoord.xy * halfScreenSize) * 2;
+    rngState = FragCoord.y * halfScreenSize.x * 2 + FragCoord.x;
 
-    vec3 rayColour = trace(ray);
+    Ray ray = {vec3(-0.8, -0.4, 2.5), normalize(originalRayDir)};
 
-    FragColor = vec4(rayColour, 1.0);
+    uint samples = 500;
+    vec3 rayColour = vec3(0.0);
+    for (uint i = 0; i < samples; i++) {
+        rayColour += trace(ray);
+    }
+    rayColour /= samples;
+
+    FragColor = vec4(pow(rayColour, vec3(1.0/2.2)), 1.0);
 }
