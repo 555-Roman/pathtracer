@@ -14,6 +14,7 @@ class Shader {
     public:
         unsigned int ID;
 
+        Shader();
         Shader(const char* vertexPath, const char* fragmentPath);
         void use();
         void setUniform1f(const std::string &name, float value0);

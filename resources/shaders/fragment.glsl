@@ -29,6 +29,7 @@ layout (std430, binding = 0) buffer TriangleBuffer {
 
 HitRecord intersectTriangle(Ray ray, Triangle triangle) {
     HitRecord record;
+    record.hit = false;
 
     vec3 edge1 = triangle.b.xyz - triangle.a.xyz;
     vec3 edge2 = triangle.c.xyz - triangle.a.xyz;
@@ -65,6 +66,7 @@ HitRecord intersectTriangle(Ray ray, Triangle triangle) {
 
 HitRecord intersectScene(Ray ray) {
     HitRecord closestRecord;
+    closestRecord.hit = false;
     float closestT = 1.0 / 0.0;
 
     for (uint i = 0; i < triangleCount; i++) {

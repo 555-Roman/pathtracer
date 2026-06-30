@@ -8,13 +8,14 @@
 #include "shader.h"
 #include "objImport.h"
 
-#define WINDOW_WIDTH 640
-#define WINDOW_HEIGHT 480
+int WINDOW_WIDTH = 640;
+int WINDOW_HEIGHT = 480;
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void processInput(GLFWwindow *window);
 
 std::vector<Triangle> triangles;
+Shader program;
 
 int main() {
     glfwInit();
@@ -37,7 +38,8 @@ int main() {
     }
 
 
-    Shader program = Shader(RESOURCES_PATH "shaders/vertex.glsl", RESOURCES_PATH "shaders/fragment.glsl");
+    program = Shader(RESOURCES_PATH "shaders/vertex.glsl", RESOURCES_PATH "shaders/fragment.glsl");
+    program.use();
 
     float vertices[] = {
         1.0f,  1.0f,
@@ -66,7 +68,7 @@ int main() {
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-    std::vector<Triangle> cubeTriangles = importTriangles(RESOURCES_PATH "models/obj/cube.obj");
+    std::vector<Triangle> cubeTriangles = importTriangles(RESOURCES_PATH "models/obj/monkey.obj");
     for (uint i = 0; i < cubeTriangles.size(); i++) {
         triangles.push_back(cubeTriangles[i]);
     }
@@ -78,11 +80,12 @@ int main() {
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, triangle_ssbo);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
+    program.setUniform1ui("triangleCount", triangles.size());
+    program.setUniform2ui("halfScreenSize", WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2);
+
     while (!glfwWindowShouldClose(window)) {
         processInput(window);
 
-        program.setUniform1ui("triangleCount", triangles.size());
-        program.use();
         glBindVertexArray(VAO);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
@@ -96,6 +99,9 @@ int main() {
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
     glViewport(0, 0, width, height);
+    WINDOW_WIDTH = width;
+    WINDOW_HEIGHT = height;
+    program.setUniform2ui("halfScreenSize", WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2);
 }
 
 
