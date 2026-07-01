@@ -31,6 +31,11 @@ class Shader {
         void setUniform2ui(const std::string &name, uint value0, uint value1);
         void setUniform3ui(const std::string &name, uint value0, uint value1, uint value2);
         void setUniform4ui(const std::string &name, uint value0, uint value1, uint value2, uint value3);
+
+        void setUniform1i(const std::string &name, int value0);
+        void setUniform2i(const std::string &name, int value0, int value1);
+        void setUniform3i(const std::string &name, int value0, int value1, int value2);
+        void setUniform4i(const std::string &name, int value0, int value1, int value2, int value3);
 };
 
 #endif //PATHTRACER_SHADER_H

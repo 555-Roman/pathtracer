@@ -16,7 +16,9 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void processInput(GLFWwindow *window, float dt);
 
 std::vector<Triangle> triangles;
-Shader program;
+Shader pathtraceProgram;
+Shader displayProgram;
+GLuint textures[2];
 
 float MOVEMENT_SPEED = 1.0;
 float ROTATION_SPEED = 1.0;
@@ -30,6 +32,10 @@ vec3 cameraRight = RIGHT;
 vec3 cameraUp = UP;
 vec3 cameraForward = FORWARD;
 mat3 cameraRotation = mat3(RIGHT, UP, -FORWARD);
+
+uint maxBounces = 3;
+uint samples = 1;
+uint currentFrame = 0;
 
 int main() {
     glfwInit();
@@ -52,8 +58,9 @@ int main() {
     }
 
 
-    program = Shader(RESOURCES_PATH "shaders/vertex.glsl", RESOURCES_PATH "shaders/fragment.glsl");
-    program.use();
+    pathtraceProgram = Shader(RESOURCES_PATH "shaders/pathtrace.vert", RESOURCES_PATH "shaders/pathtrace.frag");
+
+    displayProgram = Shader(RESOURCES_PATH "shaders/display.vert", RESOURCES_PATH "shaders/display.frag");
 
     float vertices[] = {
         1.0f,  1.0f,
@@ -82,7 +89,7 @@ int main() {
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-    for (Triangle t : importTriangles(RESOURCES_PATH "models/obj/cube.obj", vec3(-2.0, 1.0, -1.5), 1.0, Material{vec3(1.0), 0.0, vec3(1.0), 1.0})) {
+    for (Triangle t : importTriangles(RESOURCES_PATH "models/obj/cube.obj", vec3(-2.0, 1.0, -1.5), 1.0, Material{vec3(1.0), 0.0, vec3(1.0), 10.0})) {
         triangles.push_back(t);
     }
     for (Triangle t : importTriangles(RESOURCES_PATH "models/obj/cube.obj", vec3(0.0, -6.0, 0.0), 5.0, Material{vec3(0.9, 0.1, 0.1), 0.0, vec3(0.0), 0.0})) {
@@ -99,27 +106,77 @@ int main() {
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, triangle_ssbo);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
-    program.setUniform1ui("triangleCount", triangles.size());
-    program.setUniform2ui("halfScreenSize", WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2);
-    program.setUniformMatrix3fv("cameraRotation", 1, value_ptr(cameraRotation));
-    program.setUniform3f("cameraPos", cameraPos.x, cameraPos.y, cameraPos.z);
+    GLuint fbo;
+    glGenFramebuffers(1, &fbo);
 
-    double currentFrame = glfwGetTime();
-    double lastFrame = currentFrame;
+    glGenTextures(2, textures);
+    for (GLuint texture : textures) {
+        glBindTexture(GL_TEXTURE_2D, texture);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, WINDOW_WIDTH, WINDOW_HEIGHT, 0, GL_RGB, GL_FLOAT, nullptr);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    }
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    double currentTime = glfwGetTime();
+    double lastTime = currentTime;
     float deltaTime;
 
     while (!glfwWindowShouldClose(window)) {
-        currentFrame = glfwGetTime();
-        deltaTime = currentFrame - lastFrame;
-        lastFrame = currentFrame;
+        currentTime = glfwGetTime();
+        deltaTime = currentTime - lastTime;
+        lastTime = currentTime;
 
         processInput(window, deltaTime);
 
-        glBindVertexArray(VAO);
+
+        glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+
+        GLuint currentFrameTexture = textures[currentFrame % 2];
+        GLuint lastFrameTexture = textures[1 - (currentFrame % 2)];
+
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, currentFrameTexture, 0);
+        if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+            std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << std::endl;
+        GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+        if (status != GL_FRAMEBUFFER_COMPLETE) {
+            std::cout << "ERROR::FRAMEBUFFER:: Incomplete! Code: 0x" << std::hex << status << std::endl;
+        }
+
+        pathtraceProgram.use();
+        pathtraceProgram.setUniform1ui("currentFrame", currentFrame);
+        pathtraceProgram.setUniform3f("cameraPos", cameraPos.x, cameraPos.y, cameraPos.z);
+        pathtraceProgram.setUniformMatrix3fv("cameraRotation", 1, value_ptr(cameraRotation));
+        pathtraceProgram.setUniform2ui("halfScreenSize", WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2);
+        pathtraceProgram.setUniform1ui("triangleCount", triangles.size());
+        pathtraceProgram.setUniform1ui("maxBounces", maxBounces);
+        pathtraceProgram.setUniform1ui("samples", samples);
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, lastFrameTexture);
+        pathtraceProgram.setUniform1i("lastFrame", 0);
+
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+        displayProgram.use();
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, currentFrameTexture);
+        displayProgram.setUniform1i("accumulatedTexture", 0);
+
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
 
         glfwSwapBuffers(window);
         glfwPollEvents();
+
+        // glBindTexture(GL_TEXTURE_2D, 0);
+        // glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
+
+        currentFrame++;
     }
 
     glfwTerminate();
@@ -127,12 +184,13 @@ int main() {
 }
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
-    std::cout << "framebuffer size callback" << std::endl;
-    std::cout << "width: " << width << " height: " << height << std::endl;
     glViewport(0, 0, width, height);
     WINDOW_WIDTH = width;
     WINDOW_HEIGHT = height;
-    program.setUniform2ui("halfScreenSize", WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2);
+    for (GLuint texture : textures) {
+        glBindTexture(GL_TEXTURE_2D, texture);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, WINDOW_WIDTH, WINDOW_HEIGHT, 0, GL_RGB, GL_FLOAT, nullptr);
+    }
 }
 
 
@@ -156,7 +214,6 @@ void processInput(GLFWwindow *window, float dt) {
     if (forwardMovement != vec3(0.0) || lateralMovement != vec3(0.0) || verticalMovement != vec3(0.0)) {
         moved = true;
         cameraPos += forwardMovement + lateralMovement + verticalMovement;
-        program.setUniform3f("cameraPos", cameraPos.x, cameraPos.y, cameraPos.z);
     }
 
     float pitchDelta =
@@ -176,6 +233,9 @@ void processInput(GLFWwindow *window, float dt) {
         cameraForward = cameraRotation * FORWARD;
         cameraRight = cameraRotation * RIGHT;
         cameraUp = cameraRotation * UP;
-        program.setUniformMatrix3fv("cameraRotation", 1, value_ptr(cameraRotation));
+    }
+
+    if (moved || rotated) {
+        currentFrame = 0;
     }
 }

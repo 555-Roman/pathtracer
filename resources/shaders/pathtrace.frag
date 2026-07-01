@@ -107,12 +107,13 @@ HitRecord intersectScene(Ray ray) {
     return closestRecord;
 }
 
+uniform uint maxBounces;
+
 vec3 trace(Ray cameraRay) {
     Ray ray = cameraRay;
     vec3 incomingLight = vec3(0.0);
     vec3 rayColour = vec3(1.0);
 
-    uint maxBounces = 1;
     for (uint bounce = 0; bounce <= maxBounces; bounce++) {
         HitRecord record = intersectScene(ray);
 
@@ -132,19 +133,24 @@ vec3 trace(Ray cameraRay) {
 
 uniform uvec2 halfScreenSize;
 uniform vec3 cameraPos;
+uniform uint samples;
+uniform uint currentFrame;
+in vec2 uv;
+uniform sampler2D lastFrame;
 
 void main() {
     uvec2 FragCoord = uvec2(gl_FragCoord.xy * halfScreenSize) * 2;
-    rngState = FragCoord.y * halfScreenSize.x * 2 + FragCoord.x;
+    rngState = FragCoord.y * halfScreenSize.x * 2 + FragCoord.x + currentFrame * 719393u;
 
     Ray ray = {cameraPos, normalize(originalRayDir)};
 
-    uint samples = 1;
     vec3 rayColour = vec3(0.0);
     for (uint i = 0; i < samples; i++) {
         rayColour += trace(ray);
     }
     rayColour /= samples;
 
-    FragColor = vec4(pow(rayColour, vec3(1.0/2.2)), 1.0);
+    vec3 accumulatedColour = texture(lastFrame, uv).rgb;
+    float weight = 1.0 / float(currentFrame + 1u);
+    FragColor = vec4(mix(accumulatedColour, rayColour, weight), 1.0);
 }

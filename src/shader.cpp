@@ -102,3 +102,16 @@ void Shader::setUniform3ui(const std::string &name, uint value0, uint value1, ui
 void Shader::setUniform4ui(const std::string &name, uint value0, uint value1, uint value2, uint value3) {
     glUniform4ui(glGetUniformLocation(ID, name.c_str()), value0, value1, value2, value3);
 }
+
+void Shader::setUniform1i(const std::string &name, int value0) {
+    glUniform1i(glGetUniformLocation(ID, name.c_str()), value0);
+}
+void Shader::setUniform2i(const std::string &name, int value0, int value1) {
+    glUniform2i(glGetUniformLocation(ID, name.c_str()), value0, value1);
+}
+void Shader::setUniform3i(const std::string &name, int value0, int value1, int value2) {
+    glUniform3i(glGetUniformLocation(ID, name.c_str()), value0, value1, value2);
+}
+void Shader::setUniform4i(const std::string &name, int value0, int value1, int value2, int value3) {
+    glUniform4i(glGetUniformLocation(ID, name.c_str()), value0, value1, value2, value3);
+}
