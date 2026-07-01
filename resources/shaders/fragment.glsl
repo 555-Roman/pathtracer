@@ -61,7 +61,7 @@ HitRecord intersectTriangle(Ray ray, Triangle triangle) {
     vec3 edge2 = triangle.c.xyz - triangle.a.xyz;
 
     vec3 normal = normalize(cross(edge1, edge2));
-//    if (dot(normal, ray.dir) > 0) return record;
+    if (dot(normal, ray.dir) > 0) return record;
 
     vec3 ray_cross_e2 = cross(ray.dir, edge2);
     float det = dot(edge1, ray_cross_e2);
@@ -112,7 +112,7 @@ vec3 trace(Ray cameraRay) {
     vec3 incomingLight = vec3(0.0);
     vec3 rayColour = vec3(1.0);
 
-    uint maxBounces = 5;
+    uint maxBounces = 1;
     for (uint bounce = 0; bounce <= maxBounces; bounce++) {
         HitRecord record = intersectScene(ray);
 
@@ -131,14 +131,15 @@ vec3 trace(Ray cameraRay) {
 }
 
 uniform uvec2 halfScreenSize;
+uniform vec3 cameraPos;
 
 void main() {
     uvec2 FragCoord = uvec2(gl_FragCoord.xy * halfScreenSize) * 2;
     rngState = FragCoord.y * halfScreenSize.x * 2 + FragCoord.x;
 
-    Ray ray = {vec3(-0.8, -0.4, 2.5), normalize(originalRayDir)};
+    Ray ray = {cameraPos, normalize(originalRayDir)};
 
-    uint samples = 500;
+    uint samples = 1;
     vec3 rayColour = vec3(0.0);
     for (uint i = 0; i < samples; i++) {
         rayColour += trace(ray);

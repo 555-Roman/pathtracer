@@ -65,6 +65,7 @@ Shader::Shader(const char* vertexPath, const char* fragmentPath) {
 void Shader::use() {
     glUseProgram(ID);
 }
+
 void Shader::setUniform1f(const std::string &name, float value0) {
     glUniform1f(glGetUniformLocation(ID, name.c_str()), value0);
 }
@@ -76,6 +77,17 @@ void Shader::setUniform3f(const std::string &name, float value0, float value1, f
 }
 void Shader::setUniform4f(const std::string &name, float value0, float value1, float value2, float value3) {
     glUniform4f(glGetUniformLocation(ID, name.c_str()), value0, value1, value2, value3);
+}
+
+
+void Shader::setUniformMatrix2fv(const std::string &name, int count, float *value) {
+    glUniformMatrix2fv(glGetUniformLocation(ID, name.c_str()), 1, GL_FALSE, value);
+}
+void Shader::setUniformMatrix3fv(const std::string &name, int count, float *value) {
+    glUniformMatrix3fv(glGetUniformLocation(ID, name.c_str()), 1, GL_FALSE, value);
+}
+void Shader::setUniformMatrix4fv(const std::string &name, int count, float *value) {
+    glUniformMatrix4fv(glGetUniformLocation(ID, name.c_str()), 1, GL_FALSE, value);
 }
 
 void Shader::setUniform1ui(const std::string &name, uint value0) {
