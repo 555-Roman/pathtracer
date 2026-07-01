@@ -107,6 +107,11 @@ HitRecord intersectScene(Ray ray) {
     return closestRecord;
 }
 
+vec3 getSkybox(Ray ray) {
+    float a = 0.5*(ray.dir.y + 1.0);
+    return mix(vec3(1.0, 1.0, 1.0), vec3(0.5, 0.7, 1.0), a);
+}
+
 uniform uint maxBounces;
 
 vec3 trace(Ray cameraRay) {
@@ -124,6 +129,7 @@ vec3 trace(Ray cameraRay) {
             incomingLight += (record.material.emissionColour * record.material.emissionStrength) * rayColour;
             rayColour *= record.material.colour;
         } else {
+            incomingLight += getSkybox(ray) * rayColour;
             break;
         }
     }
