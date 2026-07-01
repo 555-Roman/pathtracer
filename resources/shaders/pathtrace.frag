@@ -36,6 +36,11 @@ layout (std430, binding = 0) buffer TriangleBuffer {
     Triangle triangles[];
 };
 
+vec3 safeNormalize(vec3 vector, vec3 fallback) {
+    vec3 normalized = normalize(vector);
+    return normalized == vec3(0.0) ? fallback : normalized;
+}
+
 uint rngState;
 float randomUniform() {
     rngState = rngState * 747796405u + 2891336453u;
@@ -50,7 +55,8 @@ vec3 randomSphere() {
     return vec3(r * cos(phi), r * sin(phi), z);
 }
 vec3 randomCosineHemisphere(vec3 normal) {
-    return normalize(normal + randomSphere());
+    vec3 dir = randomSphere();
+    return dir * sign(dot(normal, dir));
 }
 
 HitRecord intersectTriangle(Ray ray, Triangle triangle) {
