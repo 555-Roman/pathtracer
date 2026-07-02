@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "include.h"
+#include "model.h"
 #include "shader.h"
 #include "objImport.h"
 #include "glm/gtc/type_ptr.hpp"
@@ -15,7 +16,6 @@ int WINDOW_HEIGHT = 480;
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void processInput(GLFWwindow *window, float dt);
 
-std::vector<Triangle> triangles;
 Shader pathtraceProgram;
 Shader displayProgram;
 GLuint textures[2];
@@ -89,21 +89,24 @@ int main() {
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-    for (Triangle t : importTriangles(RESOURCES_PATH "models/obj/cube.obj", vec3(-2.0, 1.0, -1.5), 1.0, Material{vec3(1.0), 0.0, vec3(1.0), 10.0})) {
-        triangles.push_back(t);
-    }
-    for (Triangle t : importTriangles(RESOURCES_PATH "models/obj/cube.obj", vec3(0.0, -6.0, 0.0), 5.0, Material{vec3(0.9, 0.1, 0.1), 0.0, vec3(0.0), 0.0})) {
-        triangles.push_back(t);
-    }
-    for (Triangle t : importTriangles(RESOURCES_PATH "models/obj/cube.obj", vec3(0.0, -0.5, 0.0), 0.5, Material{vec3(0.1, 0.9, 0.1), 0.0, vec3(0.0), 0.0})) {
-        triangles.push_back(t);
-    }
+    importModel(RESOURCES_PATH "models/obj/cube.obj", vec3(-2.0, 1.0, -1.5), 1.0, Material{vec3(1.0), 0.0, vec3(1.0), 10.0});
+    addModel(0, 12, vec3(0.0, -6.0, 0.0), 5.0, Material{vec3(0.9, 0.1, 0.1), 0.0, vec3(0.0), 0.0});
+    addModel(0, 12, vec3(0.0, -0.5, 0.0), 0.5, Material{vec3(0.1, 0.9, 0.1), 0.0, vec3(0.0), 0.0});
+    std::cout << triangles.size() << std::endl;
+    std::cout << models.size() << std::endl;
 
     GLuint triangle_ssbo;
     glGenBuffers(1, &triangle_ssbo);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, triangle_ssbo);
     glBufferData(GL_SHADER_STORAGE_BUFFER, triangles.size() * sizeof(Triangle), triangles.data(), GL_DYNAMIC_COPY);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, triangle_ssbo);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+
+    GLuint model_ssbo;
+    glGenBuffers(1, &model_ssbo);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, model_ssbo);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, models.size() * sizeof(Model), models.data(), GL_DYNAMIC_COPY);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, model_ssbo);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
     GLuint fbo;
@@ -138,17 +141,19 @@ int main() {
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, currentFrameTexture, 0);
         if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
             std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << std::endl;
-        GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-        if (status != GL_FRAMEBUFFER_COMPLETE) {
-            std::cout << "ERROR::FRAMEBUFFER:: Incomplete! Code: 0x" << std::hex << status << std::endl;
-        }
 
         pathtraceProgram.use();
+
         pathtraceProgram.setUniform1ui("currentFrame", currentFrame);
+
         pathtraceProgram.setUniform3f("cameraPos", cameraPos.x, cameraPos.y, cameraPos.z);
         pathtraceProgram.setUniformMatrix3fv("cameraRotation", 1, value_ptr(cameraRotation));
+
         pathtraceProgram.setUniform2ui("halfScreenSize", WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2);
+
         pathtraceProgram.setUniform1ui("triangleCount", triangles.size());
+        pathtraceProgram.setUniform1ui("modelCount", models.size());
+
         pathtraceProgram.setUniform1ui("maxBounces", maxBounces);
         pathtraceProgram.setUniform1ui("samples", samples);
 
@@ -191,6 +196,7 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
         glBindTexture(GL_TEXTURE_2D, texture);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, WINDOW_WIDTH, WINDOW_HEIGHT, 0, GL_RGB, GL_FLOAT, nullptr);
     }
+    currentFrame = 0;
 }
 
 

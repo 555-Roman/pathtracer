@@ -20,6 +20,14 @@ struct Triangle {
     vec4 a;
     vec4 b;
     vec4 c;
+};
+
+struct Model {
+    uint triangleIndex;
+    uint triangleCount;
+    uint padding[2];
+    vec3 offset;
+    float scale;
     Material material;
 };
 
@@ -34,6 +42,11 @@ struct HitRecord {
 uniform uint triangleCount;
 layout (std430, binding = 0) buffer TriangleBuffer {
     Triangle triangles[];
+};
+
+uniform uint modelCount;
+layout (std430, binding = 1) buffer ModelBuffer {
+    Model models[];
 };
 
 vec3 safeNormalize(vec3 vector, vec3 fallback) {
@@ -78,7 +91,7 @@ HitRecord intersectTriangle(Ray ray, Triangle triangle) {
     vec3 s = ray.origin - triangle.a.xyz;
     float u = inv_det * dot(s, ray_cross_e2);
 
-    if (u < -0 || u - 1 > 0) return record;
+    if (u < 0 || u - 1 > 0) return record;
 
     vec3 s_cross_e1 = cross(s, edge1);
     float v = inv_det * dot(ray.dir, s_cross_e1);
@@ -92,7 +105,6 @@ HitRecord intersectTriangle(Ray ray, Triangle triangle) {
         record.t = t;
         record.pos = ray.origin + ray.dir * t;
         record.normal = normal;
-        record.material = triangle.material;
     }
     return record;
 }
@@ -102,11 +114,23 @@ HitRecord intersectScene(Ray ray) {
     closestRecord.hit = false;
     float closestT = 1.0 / 0.0;
 
-    for (uint i = 0; i < triangleCount; i++) {
-        HitRecord record = intersectTriangle(ray, triangles[i]);
-        if (record.hit && record.t < closestT) {
-            closestRecord = record;
-            closestT = record.t;
+    for (uint i = 0; i < modelCount; i++) {
+        Model model = models[i];
+
+        Ray localRay = ray;
+        localRay.origin -= model.offset;
+        localRay.origin /= model.scale;
+        localRay.dir /= model.scale;
+
+        for (uint i = model.triangleIndex; i < model.triangleIndex+model.triangleCount; i++) {
+            HitRecord record = intersectTriangle(localRay, triangles[i]);
+            if (record.hit && record.t < closestT) {
+                closestRecord = record;
+                closestRecord.pos *= model.scale;
+                closestRecord.pos += model.offset;
+                closestRecord.material = model.material;
+                closestT = record.t;
+            }
         }
     }
 

@@ -2,8 +2,7 @@
 
 #include <glm/gtc/random.hpp>
 
-std::vector<Triangle> importTriangles(const char* filePath) {
-    std::vector<Triangle> outTriangles;
+void importTriangles(const char* filePath) {
     std::vector<vec3> vertices;
     std::vector<uvec3> indices;
 
@@ -33,39 +32,6 @@ std::vector<Triangle> importTriangles(const char* filePath) {
         tri.a = vertices[idx0];
         tri.b = vertices[idx1];
         tri.c = vertices[idx2];
-        Material material = {linearRand(vec3(0.2, 0.2, 0.2), vec3(0.9, 0.9, 0.9)), 0.0, vec3(0.0), 0.0};
-        tri.material = material;
-        outTriangles.push_back(tri);
+        triangles.push_back(tri);
     }
-
-    return outTriangles;
-}
-
-std::vector<Triangle> importTriangles(const char* filePath, vec3 offset, float scale) {
-    std::vector<Triangle> outTriangles;
-    for (Triangle t : importTriangles(filePath)) {
-        t.a *= scale;
-        t.b *= scale;
-        t.c *= scale;
-        t.a += offset;
-        t.b += offset;
-        t.c += offset;
-        outTriangles.push_back(t);
-    }
-    return outTriangles;
-}
-
-std::vector<Triangle> importTriangles(const char* filePath, vec3 offset, float scale, Material material) {
-    std::vector<Triangle> outTriangles;
-    for (Triangle t : importTriangles(filePath)) {
-        t.a *= scale;
-        t.b *= scale;
-        t.c *= scale;
-        t.a += offset;
-        t.b += offset;
-        t.c += offset;
-        t.material = material;
-        outTriangles.push_back(t);
-    }
-    return outTriangles;
 }
