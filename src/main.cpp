@@ -9,6 +9,7 @@
 #include "shader.h"
 #include "objImport.h"
 #include "glm/gtc/type_ptr.hpp"
+#include "stb_image/stb_image.h"
 
 int WINDOW_WIDTH = 640;
 int WINDOW_HEIGHT = 480;
@@ -22,7 +23,7 @@ GLuint textures[2];
 
 float MOVEMENT_SPEED = 1.0;
 float ROTATION_SPEED = 1.0;
-vec3 cameraPos = vec3(-0.8, -0.4, 2.5);
+vec3 cameraPos = vec3(0.0, 0.0, 0.0);
 float cameraPitch = 0.0;
 float cameraYaw = 0.0;
 #define RIGHT vec3(1.0, 0.0, 0.0)
@@ -38,6 +39,8 @@ uint samples = 1;
 uint currentFrame = 0;
 
 int main() {
+    stbi_set_flip_vertically_on_load(true);
+
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
@@ -54,6 +57,12 @@ int main() {
 
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
         std::cout << "Failed to initialize GLAD" << std::endl;
+        return -1;
+    }
+
+
+    if (!GLAD_GL_ARB_bindless_texture) {
+        std::cout << "for now only bindless-texture capable gpus are supported" << std::endl;
         return -1;
     }
 
@@ -89,11 +98,36 @@ int main() {
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-    importModel(RESOURCES_PATH "models/obj/cube.obj", vec3(-2.0, 1.0, -1.5), 1.0, Material{vec3(1.0), 0.0, vec3(1.0), 10.0});
-    addModel(0, 12, vec3(0.0, -6.0, 0.0), 5.0, Material{vec3(0.9, 0.1, 0.1), 0.0, vec3(0.0), 0.0});
-    addModel(0, 12, vec3(0.0, -0.5, 0.0), 0.5, Material{vec3(0.1, 0.9, 0.1), 0.0, vec3(0.0), 0.0});
-    std::cout << triangles.size() << std::endl;
-    std::cout << models.size() << std::endl;
+    // importModel(RESOURCES_PATH "models/obj/cube.obj", vec3(-2.0, 1.0, -1.5), 1.0, Material{vec3(1.0), 0.0, vec3(1.0), 10.0});
+    // addModel(0, 12, vec3(0.0, -6.0, 0.0), 5.0, Material{vec3(0.9, 0.1, 0.1), 0.0, vec3(0.0), 0.0});
+    // addModel(0, 12, vec3(0.0, -0.5, 0.0), 0.5, Material{vec3(0.1, 0.9, 0.1), 0.0, vec3(0.0), 0.0});
+    // std::cout << triangles.size() << std::endl;
+    // std::cout << models.size() << std::endl;
+
+    importModel(RESOURCES_PATH "models/obj/cube.obj");
+
+    unsigned int cubeTexture;
+    glGenTextures(1, &cubeTexture);
+    glBindTexture(GL_TEXTURE_2D, cubeTexture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    int width, height, nrChannels;
+    unsigned char *data = stbi_load(RESOURCES_PATH "textures/cubemap.png", &width, &height, &nrChannels, 0);
+    if (data) {
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+    } else {
+        std::cout << "Failed to load texture" << std::endl;
+    }
+    stbi_image_free(data);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    GLuint64 cubeTextureHandle = glGetTextureHandleARB(cubeTexture);
+    glMakeTextureHandleResidentARB(cubeTextureHandle);
+
+    std::cout << cubeTexture << std::endl;
+    std::cout << cubeTextureHandle << std::endl;
+
+    models[0].material.textureHandle = cubeTextureHandle;
 
     GLuint triangle_ssbo;
     glGenBuffers(1, &triangle_ssbo);
@@ -183,6 +217,12 @@ int main() {
 
         currentFrame++;
     }
+
+    glMakeTextureHandleNonResidentARB(cubeTextureHandle);
+
+    glDeleteVertexArrays(1, &VAO);
+    glDeleteBuffers(1, &VBO);
+    glDeleteBuffers(1, &EBO);
 
     glfwTerminate();
     return 0;

@@ -1,4 +1,5 @@
 #version 460 core
+#extension GL_ARB_bindless_texture: require
 
 in vec3 originalRayDir;
 
@@ -11,15 +12,21 @@ struct Ray {
 
 struct Material {
     vec3 colour;
-    float padding;
+    float padding0;
     vec3 emissionColour;
     float emissionStrength;
+    sampler2D textureHandle;
+    uvec2 padding1;
 };
 
 struct Triangle {
     vec4 a;
     vec4 b;
     vec4 c;
+    vec2 uv_a;
+    vec2 uv_b;
+    vec2 uv_c;
+    vec2 uv_padding;
 };
 
 struct Model {
@@ -36,6 +43,7 @@ struct HitRecord {
     float t;
     vec3 pos;
     vec3 normal;
+    vec2 uv;
     Material material;
 };
 
@@ -80,7 +88,7 @@ HitRecord intersectTriangle(Ray ray, Triangle triangle) {
     vec3 edge2 = triangle.c.xyz - triangle.a.xyz;
 
     vec3 normal = normalize(cross(edge1, edge2));
-    if (dot(normal, ray.dir) > 0) return record;
+//    if (dot(normal, ray.dir) > 0) return record;
 
     vec3 ray_cross_e2 = cross(ray.dir, edge2);
     float det = dot(edge1, ray_cross_e2);
@@ -100,11 +108,16 @@ HitRecord intersectTriangle(Ray ray, Triangle triangle) {
 
     float t = inv_det * dot(edge2, s_cross_e1);
 
+    float w = 1.0 - u - v;
+
+    vec2 uv = triangle.uv_a * w + triangle.uv_b * u + triangle.uv_c * v;
+
     if (t > 0) {
         record.hit = true;
         record.t = t;
         record.pos = ray.origin + ray.dir * t;
         record.normal = normal;
+        record.uv = uv;
     }
     return record;
 }
@@ -157,7 +170,12 @@ vec3 trace(Ray cameraRay) {
             ray.dir = randomCosineHemisphere(record.normal);
 
             incomingLight += (record.material.emissionColour * record.material.emissionStrength) * rayColour;
-            rayColour *= record.material.colour;
+            vec3 colour = record.material.colour;
+            if (uvec2(record.material.textureHandle) != uvec2(0)) {
+                colour = texture(record.material.textureHandle, record.uv).rgb;
+                return colour;
+            }
+            rayColour *= colour;
         } else {
             incomingLight += getSkybox(ray) * rayColour;
             break;

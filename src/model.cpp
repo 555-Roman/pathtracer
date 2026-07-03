@@ -12,7 +12,7 @@ void importModel(const char* filePath, vec3 offset, float scale, Material materi
 }
 
 void importModel(const char* filePath, vec3 offset, float scale) {
-    importModel(filePath, offset, scale, {vec3(1.0), 0.0, vec3(0.0), 0.0});
+    importModel(filePath, offset, scale, {vec3(1.0), 0.0, vec3(0.0), 0.0, 0, 0});
 }
 
 void importModel(const char* filePath, Material material) {
@@ -20,7 +20,7 @@ void importModel(const char* filePath, Material material) {
 }
 
 void importModel(const char* filePath) {
-    importModel(filePath, vec3(0.0), 1.0, {vec3(1.0), 0.0, vec3(0.0), 0.0});
+    importModel(filePath, vec3(0.0), 1.0, {vec3(1.0), 0.0, vec3(0.0), 0.0, 0, 0});
 }
 
 void addModel(uint triangleIndex, uint triangleCount, vec3 offset, float scale, Material material) {
@@ -34,7 +34,7 @@ void addModel(uint triangleIndex, uint triangleCount, vec3 offset, float scale, 
 }
 
 void addModel(uint triangleIndex, uint triangleCount, vec3 offset, float scale) {
-    addModel(triangleIndex, triangleCount, offset, scale, {vec3(1.0), 0.0, vec3(0.0), 0.0});
+    addModel(triangleIndex, triangleCount, offset, scale, {vec3(1.0), 0.0, vec3(0.0), 0.0, 0, 0});
 }
 
 void addModel(uint triangleIndex, uint triangleCount, Material material) {
@@ -42,5 +42,5 @@ void addModel(uint triangleIndex, uint triangleCount, Material material) {
 }
 
 void addModel(uint triangleIndex, uint triangleCount) {
-    addModel(triangleIndex, triangleCount, vec3(0.0), 1.0, {vec3(1.0), 0.0, vec3(0.0), 0.0});
+    addModel(triangleIndex, triangleCount, vec3(0.0), 1.0, {vec3(1.0), 0.0, vec3(0.0), 0.0, 0, 0});
 }
