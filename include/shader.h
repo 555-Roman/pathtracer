@@ -36,6 +36,8 @@ class Shader {
         void setUniform2i(const std::string &name, int value0, int value1);
         void setUniform3i(const std::string &name, int value0, int value1, int value2);
         void setUniform4i(const std::string &name, int value0, int value1, int value2, int value3);
+
+        void setUniformHandleui64ARB(const std::string &name, GLuint handle);
 };
 
 #endif //PATHTRACER_SHADER_H

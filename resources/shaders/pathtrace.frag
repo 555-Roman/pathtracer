@@ -88,7 +88,7 @@ HitRecord intersectTriangle(Ray ray, Triangle triangle) {
     vec3 edge2 = triangle.c.xyz - triangle.a.xyz;
 
     vec3 normal = normalize(cross(edge1, edge2));
-//    if (dot(normal, ray.dir) > 0) return record;
+    if (dot(normal, ray.dir) > 0) return record;
 
     vec3 ray_cross_e2 = cross(ray.dir, edge2);
     float det = dot(edge1, ray_cross_e2);
@@ -173,7 +173,6 @@ vec3 trace(Ray cameraRay) {
             vec3 colour = record.material.colour;
             if (uvec2(record.material.textureHandle) != uvec2(0)) {
                 colour = texture(record.material.textureHandle, record.uv).rgb;
-                return colour;
             }
             rayColour *= colour;
         } else {

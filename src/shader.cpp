@@ -115,3 +115,7 @@ void Shader::setUniform3i(const std::string &name, int value0, int value1, int v
 void Shader::setUniform4i(const std::string &name, int value0, int value1, int value2, int value3) {
     glUniform4i(glGetUniformLocation(ID, name.c_str()), value0, value1, value2, value3);
 }
+
+void Shader::setUniformHandleui64ARB(const std::string &name, GLuint handle) {
+    glUniformHandleui64ARB(glGetUniformLocation(ID, name.c_str()), handle);
+}

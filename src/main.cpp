@@ -106,28 +106,7 @@ int main() {
 
     importModel(RESOURCES_PATH "models/obj/cube.obj");
 
-    unsigned int cubeTexture;
-    glGenTextures(1, &cubeTexture);
-    glBindTexture(GL_TEXTURE_2D, cubeTexture);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    int width, height, nrChannels;
-    unsigned char *data = stbi_load(RESOURCES_PATH "textures/cubemap.png", &width, &height, &nrChannels, 0);
-    if (data) {
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
-    } else {
-        std::cout << "Failed to load texture" << std::endl;
-    }
-    stbi_image_free(data);
-    glBindTexture(GL_TEXTURE_2D, 0);
-
-    GLuint64 cubeTextureHandle = glGetTextureHandleARB(cubeTexture);
-    glMakeTextureHandleResidentARB(cubeTextureHandle);
-
-    std::cout << cubeTexture << std::endl;
-    std::cout << cubeTextureHandle << std::endl;
-
-    models[0].material.textureHandle = cubeTextureHandle;
+    models[0].material.textureHandle = getTexture(RESOURCES_PATH "textures/cube.png");
 
     GLuint triangle_ssbo;
     glGenBuffers(1, &triangle_ssbo);
@@ -212,13 +191,8 @@ int main() {
         glfwSwapBuffers(window);
         glfwPollEvents();
 
-        // glBindTexture(GL_TEXTURE_2D, 0);
-        // glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
-
         currentFrame++;
     }
-
-    glMakeTextureHandleNonResidentARB(cubeTextureHandle);
 
     glDeleteVertexArrays(1, &VAO);
     glDeleteBuffers(1, &VBO);

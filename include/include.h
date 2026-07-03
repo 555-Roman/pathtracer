@@ -1,8 +1,11 @@
 #ifndef PATHTRACER_INCLUDE_H
 #define PATHTRACER_INCLUDE_H
 
+#include <iostream>
 #include <glm/glm.hpp>
 #include <glad/glad.h>
+
+#include "stb_image/stb_image.h"
 
 using namespace glm;
 
@@ -14,6 +17,28 @@ struct Material {
     GLuint64 textureHandle;
     GLuint64 padding1;
 };
+
+inline GLuint64 getTexture(const char* filePath) {
+    unsigned int cubeTexture;
+    glGenTextures(1, &cubeTexture);
+    glBindTexture(GL_TEXTURE_2D, cubeTexture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    int width, height, nrChannels;
+    unsigned char *data = stbi_load(filePath, &width, &height, &nrChannels, 0);
+    if (data) {
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+    } else {
+        std::cout << "Failed to load texture" << std::endl;
+    }
+    stbi_image_free(data);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    GLuint64 cubeTextureHandle = glGetTextureHandleARB(cubeTexture);
+    glMakeTextureHandleResidentARB(cubeTextureHandle);
+
+    return cubeTextureHandle;
+}
 
 struct Triangle {
     vec3 a;
