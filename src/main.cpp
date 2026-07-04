@@ -1,3 +1,4 @@
+#include <filesystem>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
@@ -8,6 +9,7 @@
 #include "model.h"
 #include "shader.h"
 #include "objImport.h"
+#include "skybox.h"
 #include "glm/gtc/type_ptr.hpp"
 #include "stb_image/stb_image.h"
 
@@ -98,15 +100,13 @@ int main() {
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-    // importModel(RESOURCES_PATH "models/obj/cube.obj", vec3(-2.0, 1.0, -1.5), 1.0, Material{vec3(1.0), 0.0, vec3(1.0), 10.0});
-    // addModel(0, 12, vec3(0.0, -6.0, 0.0), 5.0, Material{vec3(0.9, 0.1, 0.1), 0.0, vec3(0.0), 0.0});
-    // addModel(0, 12, vec3(0.0, -0.5, 0.0), 0.5, Material{vec3(0.1, 0.9, 0.1), 0.0, vec3(0.0), 0.0});
-    // std::cout << triangles.size() << std::endl;
-    // std::cout << models.size() << std::endl;
 
     importModel(RESOURCES_PATH "models/obj/cube.obj");
 
     models[0].material.textureHandle = getTexture(RESOURCES_PATH "textures/cube.png");
+
+    setSkyboxEquirectangular(RESOURCES_PATH "textures/rogland_clear_night_4k.png");
+
 
     GLuint triangle_ssbo;
     glGenBuffers(1, &triangle_ssbo);
@@ -169,6 +169,10 @@ int main() {
 
         pathtraceProgram.setUniform1ui("maxBounces", maxBounces);
         pathtraceProgram.setUniform1ui("samples", samples);
+
+        pathtraceProgram.setUniformHandleui64ARB("skyboxCubemapTexture", skyboxCubemapTexture);
+        pathtraceProgram.setUniformHandleui64ARB("skyboxEquirectangularTexture", skyboxEquirectangularTexture);
+        pathtraceProgram.setUniform1ui("skyboxFormat", skyboxFormat);
 
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, lastFrameTexture);

@@ -150,9 +150,22 @@ HitRecord intersectScene(Ray ray) {
     return closestRecord;
 }
 
+uniform uint skyboxFormat;
+uniform samplerCube skyboxCubemapTexture;
+uniform sampler2D skyboxEquirectangularTexture;
 vec3 getSkybox(Ray ray) {
-    float a = 0.5*(ray.dir.y + 1.0);
-    return mix(vec3(1.0, 1.0, 1.0), vec3(0.5, 0.7, 1.0), a);
+    if (skyboxFormat == 0) {
+        float a = 0.5*(ray.dir.y + 1.0);
+        return mix(vec3(1.0, 1.0, 1.0), vec3(0.5, 0.7, 1.0), a);
+    } else if (skyboxFormat == 1) {
+        return texture(skyboxCubemapTexture, ray.dir).rgb;
+    } else if (skyboxFormat == 2) {
+        float u = 1.0 - atan(ray.dir.z, ray.dir.x) * 0.5 / 3.1415926 + 0.5;
+        float v = 1.0 - asin(ray.dir.y) / 3.1415926 + 0.5;
+        return texture(skyboxEquirectangularTexture, vec2(u, v)).rgb;
+    } else {
+        return vec3(0.0);
+    }
 }
 
 uniform uint maxBounces;
