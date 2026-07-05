@@ -3,7 +3,7 @@
 void importModel(const char* filePath, vec3 offset, float scale, Material material) {
     Model model{};
     model.triangleIndex = triangles.size();
-    importTriangles(filePath);
+    // importTriangles(filePath);
     model.triangleCount = triangles.size() - model.triangleIndex;
     model.offset = offset;
     model.scale = scale;

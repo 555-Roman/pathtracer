@@ -2,7 +2,7 @@
 #define PATHTRACER_MODEL_H
 
 #include "include.h"
-#include "objImport.h"
+#include "import.h"
 
 void importModel(const char* filePath);
 void importModel(const char* filePath, Material material);

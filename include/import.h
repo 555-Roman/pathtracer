@@ -5,6 +5,9 @@
 #include <iostream>
 #include <fstream>
 
-void importTriangles(const char* filePath);
+#include "assimp/scene.h"
+
+void import(const char* filePath);
+void processScene(const aiScene* scene);
 
 #endif //PATHTRACER_OBJIMPORT_H

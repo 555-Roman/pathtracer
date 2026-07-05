@@ -28,12 +28,16 @@ set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+set(ASSIMP_NO_EXPORT ON CACHE BOOL "" FORCE)
+set(ASSIMP_WARNINGS_AS_ERRORS OFF CACHE BOOL "" FORCE)
+set(ASSIMP_BUILD_USD_IMPORTER ON CACHE BOOL "" FORCE)
 
 
 add_subdirectory(thirdParty/glfw-3.4)
 add_subdirectory(thirdParty/glad)
 add_subdirectory(thirdParty/glm-1.0.3)
 add_subdirectory(thirdParty/stb_image)
+add_subdirectory(thirdParty/assimp)
 
 
 file(GLOB_RECURSE MY_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
@@ -73,4 +77,4 @@ target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC "${CMAKE_CURRENT_SOURC
 target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include/platform/")
 
 
-target_link_libraries("${CMAKE_PROJECT_NAME}" PRIVATE glfw glad glm stb_image)
+target_link_libraries("${CMAKE_PROJECT_NAME}" PRIVATE glfw glad glm stb_image assimp)

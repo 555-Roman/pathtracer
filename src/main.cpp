@@ -8,7 +8,7 @@
 #include "include.h"
 #include "model.h"
 #include "shader.h"
-#include "objImport.h"
+#include "import.h"
 #include "skybox.h"
 #include "glm/gtc/type_ptr.hpp"
 #include "stb_image/stb_image.h"
@@ -101,9 +101,7 @@ int main() {
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 
-    importModel(RESOURCES_PATH "models/obj/cube.obj");
-
-    models[0].material.textureHandle = getTexture(RESOURCES_PATH "textures/cube.png");
+    import(RESOURCES_PATH "models/usdc/suzanne.usdc");
 
     setSkyboxEquirectangular(RESOURCES_PATH "textures/rogland_clear_night_4k.png");
 
