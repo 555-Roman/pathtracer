@@ -101,7 +101,12 @@ int main() {
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 
-    import(RESOURCES_PATH "models/usdc/suzanne.usdc");
+    import(RESOURCES_PATH "models/rock/Rock1.obj");
+
+    import(RESOURCES_PATH "models/obj/cube.obj");
+    models[2].material.emissionColour = vec3(1.0);
+    models[2].material.emissionStrength = 10.0;
+    models[2].offset = vec3(1.0, 4.0, 5.0);
 
     setSkyboxEquirectangular(RESOURCES_PATH "textures/rogland_clear_night_4k.png");
 

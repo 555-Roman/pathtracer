@@ -8,6 +8,7 @@
 #include "assimp/scene.h"
 
 void import(const char* filePath);
-void processScene(const aiScene* scene);
+void processScene(const aiScene* scene, const char* filePath);
+Material getMeshMaterial(aiMesh* mesh, const aiScene* scene, const char* filePath);
 
 #endif //PATHTRACER_OBJIMPORT_H
