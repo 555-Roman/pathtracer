@@ -160,9 +160,9 @@ vec3 getSkybox(Ray ray) {
     } else if (skyboxFormat == 1) {
         return texture(skyboxCubemapTexture, ray.dir).rgb;
     } else if (skyboxFormat == 2) {
-        float u = 1.0 - atan(ray.dir.z, ray.dir.x) * 0.5 / 3.1415926 + 0.5;
+        float u = atan(ray.dir.z, ray.dir.x) * 0.5 / 3.1415926 + 0.5;
         float v = 1.0 - asin(ray.dir.y) / 3.1415926 + 0.5;
-        return texture(skyboxEquirectangularTexture, vec2(u, v)).rgb;
+        return pow(texture(skyboxEquirectangularTexture, vec2(u, v)).rgb, vec3(2.2));
     } else {
         return vec3(0.0);
     }
@@ -185,7 +185,7 @@ vec3 trace(Ray cameraRay) {
             incomingLight += (record.material.emissionColour * record.material.emissionStrength) * rayColour;
             vec3 colour = record.material.colour;
             if (uvec2(record.material.textureHandle) != uvec2(0)) {
-                colour = texture(record.material.textureHandle, record.uv).rgb;
+                colour = pow(texture(record.material.textureHandle, record.uv).rgb, vec3(2.2));
             }
             rayColour *= colour;
         } else {
