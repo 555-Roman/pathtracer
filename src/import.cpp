@@ -9,11 +9,9 @@ void import(const char* filePath) {
     Assimp::Importer importer;
 
     const aiScene* scene = importer.ReadFile(filePath,
-        aiProcess_Triangulate           |
+        aiProcess_Triangulate               |
         aiProcess_JoinIdenticalVertices     |
-        aiProcess_PreTransformVertices      |
         aiProcess_RemoveRedundantMaterials  |
-        aiProcess_OptimizeMeshes            |
         aiProcess_GlobalScale               |
         aiProcess_GenNormals                |
         aiProcess_GenUVCoords
@@ -27,40 +25,49 @@ void import(const char* filePath) {
 }
 
 void processScene(const aiScene* scene, const char* filePath) {
-    for (int meshIdx = 0; meshIdx < scene->mNumMeshes; meshIdx++) {
-        aiMesh* mesh = scene->mMeshes[meshIdx];
-        std::vector<vec3> positions;
-        std::vector<vec3> normals;
-        std::vector<vec2> uvs;
-        positions.resize(mesh->mNumVertices);
-        normals.resize(mesh->mNumVertices);
-        uvs.resize(mesh->mNumVertices);
-        for (int vIdx = 0; vIdx < mesh->mNumVertices; vIdx++) {
-            aiVector3D vertex = mesh->mVertices[vIdx];
-            positions[vIdx] = vec3(vertex.x, vertex.y, vertex.z);
-            aiVector3D normal = mesh->mNormals[vIdx];
-            normals[vIdx] = vec3(normal.x, normal.y, normal.z);
-            if (mesh->mTextureCoords[0]) {
-                aiVector3D uv = mesh->mTextureCoords[0][vIdx];
-                uvs[vIdx] = vec2(uv.x, uv.y);
-            } else {
-                uvs[vIdx] = vec2(0.0f, 0.0f);
-            }
+    aiNode* rootNode = scene->mRootNode;
+    for (int childIdx = 0; childIdx < rootNode->mNumChildren; childIdx++) {
+        aiNode* child = rootNode->mChildren[childIdx];
+        for (int meshIdx = 0; meshIdx < child->mNumMeshes; meshIdx++) {
+            aiMesh* mesh = scene->mMeshes[child->mMeshes[meshIdx]];
+            processMesh(mesh, scene, filePath);
         }
-        uint triangleIndex = triangles.size();
-        for (int fIdx = 0; fIdx < mesh->mNumFaces; fIdx++) {
-            aiFace face = mesh->mFaces[fIdx];
-            uint idx0 = face.mIndices[0];
-            uint idx1 = face.mIndices[1];
-            uint idx2 = face.mIndices[2];
-            triangles.push_back(Triangle{positions[idx0], 0.0, positions[idx1], 0.0, positions[idx2], 0.0, uvs[idx0], uvs[idx1], uvs[idx2], vec2(0.0)});
-        }
-        uint triangleCount = triangles.size() - triangleIndex;
-
-        Material material = getMeshMaterial(mesh, scene, filePath);
-
-        models.push_back({triangleIndex, triangleCount, {0, 0}, vec3(0.0), 1.0, material});
     }
+}
+
+void processMesh(aiMesh* mesh, const aiScene* scene, const char* filePath) {
+    std::vector<vec3> positions;
+    std::vector<vec3> normals;
+    std::vector<vec2> uvs;
+    for (int vertexIdx = 0; vertexIdx < mesh->mNumVertices; vertexIdx++) {
+        aiVector3D position = mesh->mVertices[vertexIdx];
+        positions.push_back(vec3(position.x, position.y, position.z));
+        if (mesh->HasNormals()) {
+            aiVector3D normal = mesh->mNormals[vertexIdx];
+            normals.push_back(vec3(normal.x, normal.y, normal.z));
+        } else {
+            normals.push_back(vec3(0.0, 1.0, 0.0));
+        }
+        if (mesh->HasTextureCoords(0)) {
+            aiVector3D uv = mesh->mTextureCoords[0][vertexIdx];
+            uvs.push_back(vec2(uv.x, uv.y));
+        } else {
+            uvs.push_back(vec2(0.0));
+        }
+    }
+
+    uint triangleIndex = triangles.size();
+    for (int faceIdx = 0; faceIdx < mesh->mNumFaces; faceIdx++) {
+        aiFace face = mesh->mFaces[faceIdx];
+        uint idx0 = face.mIndices[0];
+        uint idx1 = face.mIndices[1];
+        uint idx2 = face.mIndices[2];
+        triangles.push_back(Triangle{positions[idx0], 0.0, positions[idx1], 0.0, positions[idx2], 0.0, uvs[idx0], uvs[idx1], uvs[idx2], vec2(0.0)});
+    }
+    uint triangleCount = triangles.size() - triangleIndex;
+
+    Material material = getMeshMaterial(mesh, scene, filePath);
+    models.push_back(Model{triangleIndex, triangleCount, {0, 0}, vec3(0.0), 1.0, material});
 }
 
 Material getMeshMaterial(aiMesh* mesh, const aiScene* scene, const char* filePath) {

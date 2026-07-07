@@ -23,7 +23,7 @@ Shader pathtraceProgram;
 Shader displayProgram;
 GLuint textures[2];
 
-float MOVEMENT_SPEED = 1.0;
+float MOVEMENT_SPEED = 10.0;
 float ROTATION_SPEED = 1.0;
 vec3 cameraPos = vec3(0.0, 0.0, 0.0);
 float cameraPitch = 0.0;
@@ -104,9 +104,9 @@ int main() {
     import(RESOURCES_PATH "models/rock/Rock1.obj");
 
     import(RESOURCES_PATH "models/obj/cube.obj");
-    models[2].material.emissionColour = vec3(1.0);
-    models[2].material.emissionStrength = 10.0;
-    models[2].offset = vec3(1.0, 4.0, 5.0);
+    models[models.size()-1].material.emissionColour = vec3(1.0);
+    models[models.size()-1].material.emissionStrength = 10.0;
+    models[models.size()-1].offset = vec3(1.0, 4.0, 5.0);
 
     setSkyboxEquirectangular(RESOURCES_PATH "textures/rogland_clear_night_4k.png");
 
