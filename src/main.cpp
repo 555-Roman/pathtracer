@@ -265,4 +265,12 @@ void processInput(GLFWwindow *window, float dt) {
     if (moved || rotated) {
         currentFrame = 0;
     }
+
+
+    if (glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS) {
+        std::cout << cameraPos.x << " " << cameraPos.y << " " << cameraPos.z << std::endl;
+        std::cout << cameraRight.x << " " << cameraRight.y << " " << cameraRight.z << std::endl;
+        std::cout << cameraUp.x << " " << cameraUp.y << " " << cameraUp.z << std::endl;
+        std::cout << cameraForward.x << " " << cameraForward.y << " " << cameraForward.z << std::endl;
+    }
 }
