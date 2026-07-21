@@ -108,6 +108,15 @@ int main() {
     models[models.size()-1].material.emissionStrength = 10.0;
     models[models.size()-1].offset = vec3(1.0, 4.0, 5.0);
 
+    import(RESOURCES_PATH "models/eb_house_plant_01/eb_house_plant_01.obj");
+    models[models.size()-1].offset = vec3(2.0, 0.0, 0.0);
+    models[models.size()-1].scale = 0.1;
+
+    import(RESOURCES_PATH "models/obj/cube.obj");
+    models[models.size()-1].offset = vec3(-1.0, 2.0, 1.5);
+    models[models.size()-1].scale = 0.4;
+    models[models.size()-1].material.opacity = 0.5;
+
     setSkyboxEquirectangular(RESOURCES_PATH "textures/rogland_clear_night_4k.png");
 
 

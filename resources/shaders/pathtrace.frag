@@ -12,11 +12,11 @@ struct Ray {
 
 struct Material {
     vec3 colour;
-    float padding0;
+    float opacity;
     vec3 emissionColour;
     float emissionStrength;
     sampler2D textureHandle;
-    uvec2 padding1;
+    uvec2 padding0;
 };
 
 struct Triangle {
@@ -80,7 +80,7 @@ vec3 randomCosineHemisphere(vec3 normal) {
     return dir * sign(dot(normal, dir));
 }
 
-HitRecord intersectTriangle(Ray ray, Triangle triangle) {
+HitRecord intersectTriangle(Ray ray, Triangle triangle, float opacity, sampler2D textureHandle) {
     HitRecord record;
     record.hit = false;
 
@@ -112,6 +112,12 @@ HitRecord intersectTriangle(Ray ray, Triangle triangle) {
 
     vec2 uv = triangle.uv_a * w + triangle.uv_b * u + triangle.uv_c * v;
 
+    float alpha = opacity;
+    if (uvec2(textureHandle) != uvec2(0)) {
+        alpha = texture(textureHandle, uv).a;
+    }
+    if (randomUniform() >= alpha) return record;
+
     if (t > 0) {
         record.hit = true;
         record.t = t;
@@ -136,7 +142,7 @@ HitRecord intersectScene(Ray ray) {
         localRay.dir /= model.scale;
 
         for (uint i = model.triangleIndex; i < model.triangleIndex+model.triangleCount; i++) {
-            HitRecord record = intersectTriangle(localRay, triangles[i]);
+            HitRecord record = intersectTriangle(localRay, triangles[i], model.material.opacity, model.material.textureHandle);
             if (record.hit && record.t < closestT) {
                 closestRecord = record;
                 closestRecord.pos *= model.scale;

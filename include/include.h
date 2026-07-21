@@ -11,11 +11,11 @@ using namespace glm;
 
 struct Material {
     vec3 colour;
-    float padding0;
+    float opacity;
     vec3 emissionColour;
     float emissionStrength;
     GLuint64 textureHandle;
-    GLuint64 padding1;
+    GLuint64 padding0;
 };
 
 inline GLuint64 getTexture(const char* filePath) {

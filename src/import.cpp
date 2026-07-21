@@ -87,7 +87,7 @@ Material getMeshMaterial(aiMesh* mesh, const aiScene* scene, const char* filePat
 
     return Material{
         vec3(colour.r, colour.g, colour.b),
-        0.0,
+        1.0,
         vec3(0.0),
         0.0,
         textureHandle,
