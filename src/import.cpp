@@ -12,7 +12,6 @@ void import(const char* filePath) {
         aiProcess_Triangulate               |
         aiProcess_JoinIdenticalVertices     |
         aiProcess_RemoveRedundantMaterials  |
-        aiProcess_GlobalScale               |
         aiProcess_GenNormals                |
         aiProcess_GenUVCoords
     );
@@ -78,11 +77,18 @@ Material getMeshMaterial(aiMesh* mesh, const aiScene* scene, const char* filePat
 
     GLuint64 textureHandle = 0;
     if (mat->GetTextureCount(aiTextureType_DIFFUSE) > 0) {
-        std::string directoryPath = filePath;
-        directoryPath = directoryPath.substr(0, directoryPath.find_last_of('/')+1);
         aiString str;
         mat->GetTexture(aiTextureType_DIFFUSE, 0, &str);
-        textureHandle = getTexture((directoryPath + std::string(str.C_Str())).c_str());
+        std::filesystem::path path(std::string(str.C_Str()));
+        if (path.is_relative()) {
+            std::string directoryPath = filePath;
+            directoryPath = directoryPath.substr(0, directoryPath.find_last_of('/')+1);
+            textureHandle = getTexture((directoryPath + std::string(str.C_Str())).c_str());
+        } else if (path.is_absolute()) {
+            textureHandle = getTexture(std::string(str.C_Str()).c_str());
+        } else {
+            std::cout << "Invalid texture path: " << path << std::endl;
+        }
     }
 
     return Material{
