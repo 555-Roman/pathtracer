@@ -23,7 +23,7 @@ Shader pathtraceProgram;
 Shader displayProgram;
 GLuint textures[2];
 
-float MOVEMENT_SPEED = 10.0;
+float MOVEMENT_SPEED = 1.0;
 float ROTATION_SPEED = 1.0;
 vec3 cameraPos = vec3(0.0, 0.0, 0.0);
 float cameraPitch = 0.0;

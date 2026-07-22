@@ -14,8 +14,13 @@ struct Material {
     float opacity;
     vec3 emissionColour;
     float emissionStrength;
-    GLuint64 textureHandle;
-    GLuint64 padding0;
+    float roughness;
+    float metalness;
+    float padding[2];
+    GLuint64 diffuseTextureHandle;
+    GLuint64 roughnessTextureHandle;
+    GLuint64 metalnessTextureHandle;
+    GLuint64 normalTextureHandle;
 };
 
 inline GLuint64 getTexture(const char* filePath) {

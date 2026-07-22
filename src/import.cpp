@@ -73,7 +73,10 @@ Material getMeshMaterial(aiMesh* mesh, const aiScene* scene, const char* filePat
     aiMaterial* mat = scene->mMaterials[mesh->mMaterialIndex];
 
     aiColor3D colour (0.f,0.f,0.f);
-    mat->Get(AI_MATKEY_COLOR_DIFFUSE,colour);
+    mat->Get(AI_MATKEY_COLOR_DIFFUSE, colour);
+
+    float opacity = 1.0;
+    mat->Get(AI_MATKEY_OPACITY, opacity);
 
     aiColor3D emissionColour (0.f,0.f,0.f);
     mat->Get(AI_MATKEY_COLOR_EMISSIVE, emissionColour);
@@ -81,10 +84,37 @@ Material getMeshMaterial(aiMesh* mesh, const aiScene* scene, const char* filePat
     if (emissionColour.r > 0.0 || emissionColour.g > 0.0 || emissionColour.b > 0.0)
         emissionStrength = 1.0;
 
+    float roughness = 1.0;
+    mat->Get(AI_MATKEY_ROUGHNESS_FACTOR, roughness);
+
+    float metalness = 0.0;
+    mat->Get(AI_MATKEY_METALLIC_FACTOR, metalness);
+
+    GLuint64 diffuseTextureHandle = getTextureHandle(aiTextureType_DIFFUSE, mat, filePath);
+    GLuint64 roughnessTextureHandle = getTextureHandle(aiTextureType_SHININESS, mat, filePath);
+    GLuint64 metalnessTextureHandle = getTextureHandle(aiTextureType_METALNESS, mat, filePath);
+    GLuint64 normalTextureHandle = getTextureHandle(aiTextureType_NORMALS, mat, filePath);
+
+    return Material{
+        vec3(colour.r, colour.g, colour.b),
+        opacity,
+        vec3(emissionColour.r, emissionColour.g, emissionColour.b),
+        emissionStrength,
+        roughness,
+        metalness,
+        {0.0, 0.0},
+        diffuseTextureHandle,
+        roughnessTextureHandle,
+        metalnessTextureHandle,
+        normalTextureHandle
+    };
+}
+
+GLuint64 getTextureHandle(aiTextureType textureType, aiMaterial* mat, const char* filePath) {
     GLuint64 textureHandle = 0;
-    if (mat->GetTextureCount(aiTextureType_DIFFUSE) > 0) {
+    if (mat->GetTextureCount(textureType) > 0) {
         aiString str;
-        mat->GetTexture(aiTextureType_DIFFUSE, 0, &str);
+        mat->GetTexture(textureType, 0, &str);
         std::filesystem::path path(std::string(str.C_Str()));
         if (path.is_relative()) {
             std::string directoryPath = filePath;
@@ -96,13 +126,5 @@ Material getMeshMaterial(aiMesh* mesh, const aiScene* scene, const char* filePat
             std::cout << "Invalid texture path: " << path << std::endl;
         }
     }
-
-    return Material{
-        vec3(colour.r, colour.g, colour.b),
-        1.0,
-        vec3(emissionColour.r, emissionColour.g, emissionColour.b),
-        emissionStrength,
-        textureHandle,
-        0
-    };
+    return textureHandle;
 }

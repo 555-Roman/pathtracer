@@ -15,8 +15,13 @@ struct Material {
     float opacity;
     vec3 emissionColour;
     float emissionStrength;
-    sampler2D textureHandle;
-    uvec2 padding0;
+    float roughness;
+    float metalness;
+    float padding[2];
+    sampler2D diffuseTextureHandle;
+    sampler2D roughnessTextureHandle;
+    sampler2D metalnessTextureHandle;
+    sampler2D normalTextureHandle;
 };
 
 struct Triangle {
@@ -142,7 +147,7 @@ HitRecord intersectScene(Ray ray) {
         localRay.dir /= model.scale;
 
         for (uint i = model.triangleIndex; i < model.triangleIndex+model.triangleCount; i++) {
-            HitRecord record = intersectTriangle(localRay, triangles[i], model.material.opacity, model.material.textureHandle);
+            HitRecord record = intersectTriangle(localRay, triangles[i], model.material.opacity, model.material.diffuseTextureHandle);
             if (record.hit && record.t < closestT) {
                 closestRecord = record;
                 closestRecord.pos *= model.scale;
@@ -174,8 +179,13 @@ vec3 getSkybox(Ray ray) {
     }
 }
 
-uniform uint maxBounces;
+void sampleOutgoingReflection(inout Ray ray, HitRecord record, out vec3 rayTint, vec3 diffuse, float roughenss, float metalness, vec3 normal) {
+    ray.origin = record.pos + record.normal * 0.001;
+    ray.dir = randomCosineHemisphere(record.normal);
+    rayTint = diffuse;
+}
 
+uniform uint maxBounces;
 vec3 trace(Ray cameraRay) {
     Ray ray = cameraRay;
     vec3 incomingLight = vec3(0.0);
@@ -185,15 +195,25 @@ vec3 trace(Ray cameraRay) {
         HitRecord record = intersectScene(ray);
 
         if (record.hit) {
-            ray.origin = record.pos + record.normal * 0.001;
-            ray.dir = randomCosineHemisphere(record.normal);
+            vec3 rayTint;
+
+            vec3 diffuse = uvec2(record.material.diffuseTextureHandle) == uvec2(0) ?
+                record.material.colour :
+                pow(texture(record.material.diffuseTextureHandle, record.uv).rgb, vec3(2.2));
+            float roughness = uvec2(record.material.roughnessTextureHandle) == uvec2(0) ?
+                record.material.roughness :
+                texture(record.material.roughnessTextureHandle, record.uv).r;
+            float metalness = uvec2(record.material.metalnessTextureHandle) == uvec2(0) ?
+                record.material.metalness :
+                texture(record.material.metalnessTextureHandle, record.uv).r;
+            vec3 normal = uvec2(record.material.normalTextureHandle) == uvec2(0) ?
+                vec3(0.0, 0.0, 1.0) :
+                texture(record.material.normalTextureHandle, record.uv).rgb;
+
+            sampleOutgoingReflection(ray, record, rayTint, diffuse, roughness, metalness, normal);
 
             incomingLight += (record.material.emissionColour * record.material.emissionStrength) * rayColour;
-            vec3 colour = record.material.colour;
-            if (uvec2(record.material.textureHandle) != uvec2(0)) {
-                colour = pow(texture(record.material.textureHandle, record.uv).rgb, vec3(2.2));
-            }
-            rayColour *= colour;
+            rayColour *= rayTint;
         } else {
             incomingLight += getSkybox(ray) * rayColour;
             break;
