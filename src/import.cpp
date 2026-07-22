@@ -75,6 +75,12 @@ Material getMeshMaterial(aiMesh* mesh, const aiScene* scene, const char* filePat
     aiColor3D colour (0.f,0.f,0.f);
     mat->Get(AI_MATKEY_COLOR_DIFFUSE,colour);
 
+    aiColor3D emissionColour (0.f,0.f,0.f);
+    mat->Get(AI_MATKEY_COLOR_EMISSIVE, emissionColour);
+    float emissionStrength = 0.0;
+    if (emissionColour.r > 0.0 || emissionColour.g > 0.0 || emissionColour.b > 0.0)
+        emissionStrength = 1.0;
+
     GLuint64 textureHandle = 0;
     if (mat->GetTextureCount(aiTextureType_DIFFUSE) > 0) {
         aiString str;
@@ -94,8 +100,8 @@ Material getMeshMaterial(aiMesh* mesh, const aiScene* scene, const char* filePat
     return Material{
         vec3(colour.r, colour.g, colour.b),
         1.0,
-        vec3(0.0),
-        0.0,
+        vec3(emissionColour.r, emissionColour.g, emissionColour.b),
+        emissionStrength,
         textureHandle,
         0
     };
