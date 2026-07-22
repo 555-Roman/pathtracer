@@ -16,7 +16,8 @@ struct Material {
     float emissionStrength;
     float roughness;
     float metalness;
-    float padding[2];
+    float ior;
+    float padding;
     GLuint64 diffuseTextureHandle;
     GLuint64 roughnessTextureHandle;
     GLuint64 metalnessTextureHandle;

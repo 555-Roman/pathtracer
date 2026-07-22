@@ -90,6 +90,9 @@ Material getMeshMaterial(aiMesh* mesh, const aiScene* scene, const char* filePat
     float metalness = 0.0;
     mat->Get(AI_MATKEY_METALLIC_FACTOR, metalness);
 
+    float ior = 1.5;
+    mat->Get(AI_MATKEY_REFRACTI, ior);
+
     GLuint64 diffuseTextureHandle = getTextureHandle(aiTextureType_DIFFUSE, mat, filePath);
     GLuint64 roughnessTextureHandle = getTextureHandle(aiTextureType_SHININESS, mat, filePath);
     GLuint64 metalnessTextureHandle = getTextureHandle(aiTextureType_METALNESS, mat, filePath);
@@ -102,7 +105,8 @@ Material getMeshMaterial(aiMesh* mesh, const aiScene* scene, const char* filePat
         emissionStrength,
         roughness,
         metalness,
-        {0.0, 0.0},
+        ior,
+        0.0,
         diffuseTextureHandle,
         roughnessTextureHandle,
         metalnessTextureHandle,

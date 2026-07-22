@@ -23,18 +23,18 @@ Shader pathtraceProgram;
 Shader displayProgram;
 GLuint textures[2];
 
-float MOVEMENT_SPEED = 1.0;
-float ROTATION_SPEED = 1.0;
-vec3 cameraPos = vec3(0.0, 0.0, 0.0);
-float cameraPitch = 0.0;
-float cameraYaw = 0.0;
 #define RIGHT vec3(1.0, 0.0, 0.0)
 #define UP vec3(0.0, 1.0, 0.0)
 #define FORWARD vec3(0.0, 0.0, -1.0)
-vec3 cameraRight = RIGHT;
-vec3 cameraUp = UP;
-vec3 cameraForward = FORWARD;
-mat3 cameraRotation = mat3(RIGHT, UP, -FORWARD);
+float MOVEMENT_SPEED = 1.0;
+float ROTATION_SPEED = 1.0;
+vec3 cameraPos = vec3(-1.26541, 1.16527, 1.72494);
+float cameraPitch = -0.55158836;
+float cameraYaw = 0.59190965;
+vec3 cameraRight = vec3(0.829889, 0, 0.557929);
+vec3 cameraUp = vec3(0.292452, 0.851611, -0.435006);
+vec3 cameraForward = vec3(0.475138, -0.524174, -0.706743);
+mat3 cameraRotation = mat3(cameraRight, cameraUp, -cameraForward);
 
 uint maxBounces = 3;
 uint samples = 1;
@@ -263,9 +263,12 @@ void processInput(GLFWwindow *window, float dt) {
 
 
     if (glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS) {
-        std::cout << cameraPos.x << " " << cameraPos.y << " " << cameraPos.z << std::endl;
-        std::cout << cameraRight.x << " " << cameraRight.y << " " << cameraRight.z << std::endl;
-        std::cout << cameraUp.x << " " << cameraUp.y << " " << cameraUp.z << std::endl;
-        std::cout << cameraForward.x << " " << cameraForward.y << " " << cameraForward.z << std::endl;
+        std::cout << "vec3 cameraPos = vec3(" << cameraPos.x << ", " << cameraPos.y << ", " << cameraPos.z << ");" << std::endl;
+        std::cout << "float cameraPitch = " << cameraPitch << ";" << std::endl;
+        std::cout << "float cameraYaw = " << cameraYaw << ";" << std::endl;
+        std::cout << "vec3 cameraRight = vec3(" << cameraRight.x << ", " << cameraRight.y << ", " << cameraRight.z << ");" << std::endl;
+        std::cout << "vec3 cameraUp = vec3(" << cameraUp.x << ", " << cameraUp.y << ", " << cameraUp.z << ");" << std::endl;
+        std::cout << "vec3 cameraForward = vec3(" << cameraForward.x << ", " << cameraForward.y << ", " << cameraForward.z << ");" << std::endl;
+        std::cout << std::endl;
     }
 }

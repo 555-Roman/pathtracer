@@ -11,14 +11,15 @@ struct Ray {
 };
 
 struct Material {
-    vec3 colour;
+    vec3 albedo;
     float opacity;
     vec3 emissionColour;
     float emissionStrength;
     float roughness;
     float metalness;
-    float padding[2];
-    sampler2D diffuseTextureHandle;
+    float ior;
+    float padding;
+    sampler2D albedoTextureHandle;
     sampler2D roughnessTextureHandle;
     sampler2D metalnessTextureHandle;
     sampler2D normalTextureHandle;
@@ -74,15 +75,15 @@ float randomUniform() {
     result = (result >> 22u) ^ result;
     return result / 4294967294.0;
 }
-vec3 randomSphere() {
-    float z = 1 - 2 * randomUniform();
-    float r = sqrt(1 - z*z);
-    float phi = 2 * 3.1415926 * randomUniform();
-    return vec3(r * cos(phi), r * sin(phi), z);
-}
-vec3 randomCosineHemisphere(vec3 normal) {
-    vec3 dir = randomSphere();
-    return dir * sign(dot(normal, dir));
+vec3 sampleCosineHemisphere() {
+    float phi = 2.0f * 3.1415926 * randomUniform();
+
+    float z = sqrt(randomUniform());
+    float sinTheta = sqrt(clamp(1.0f - z * z, 0.0f, 1.0f));
+    float x = sinTheta * cos(phi);
+    float y = sinTheta * sin(phi);
+
+    return vec3(x, y, z);
 }
 
 HitRecord intersectTriangle(Ray ray, Triangle triangle, float opacity, sampler2D textureHandle) {
@@ -147,7 +148,7 @@ HitRecord intersectScene(Ray ray) {
         localRay.dir /= model.scale;
 
         for (uint i = model.triangleIndex; i < model.triangleIndex+model.triangleCount; i++) {
-            HitRecord record = intersectTriangle(localRay, triangles[i], model.material.opacity, model.material.diffuseTextureHandle);
+            HitRecord record = intersectTriangle(localRay, triangles[i], model.material.opacity, model.material.albedoTextureHandle);
             if (record.hit && record.t < closestT) {
                 closestRecord = record;
                 closestRecord.pos *= model.scale;
@@ -179,10 +180,109 @@ vec3 getSkybox(Ray ray) {
     }
 }
 
-void sampleOutgoingReflection(inout Ray ray, HitRecord record, out vec3 rayTint, vec3 diffuse, float roughenss, float metalness, vec3 normal) {
-    ray.origin = record.pos + record.normal * 0.001;
-    ray.dir = randomCosineHemisphere(record.normal);
-    rayTint = diffuse;
+float fresnelReflection(vec3 wi, vec3 normal, float etaOutside, float etaInside) {
+    float cosThetaI = dot(wi, normal);
+    float etaWiSide = etaOutside;
+    float etaNotWiSide = etaInside;
+    if (cosThetaI <= 0.0) {
+        etaWiSide = etaInside;
+        etaNotWiSide = etaOutside;
+        cosThetaI = -cosThetaI;
+    }
+
+    float sinThetaI = sqrt(max(0.0, 1.0 - cosThetaI * cosThetaI));
+    float sinThetaT = etaWiSide / etaNotWiSide * sinThetaI;
+    if (sinThetaT >= 1.0) return 1.0;
+    float cosThetaT = sqrt(max(0.0, 1.0 - sinThetaT * sinThetaT));
+
+    float Rparl =   ((etaNotWiSide * cosThetaI) - (etaWiSide * cosThetaT)) /
+                    ((etaNotWiSide * cosThetaI) + (etaWiSide * cosThetaT));
+    float Rperp =   ((etaWiSide * cosThetaI) - (etaNotWiSide * cosThetaT)) /
+                    ((etaWiSide * cosThetaI) + (etaNotWiSide * cosThetaT));
+    return (Rparl * Rparl + Rperp * Rperp) / 2;
+}
+
+vec3 sampleGgxVndfHemisphere(vec3 wi) {
+    float phi = 2.0f * 3.1415926 * randomUniform();
+
+    float z = fma((1.0f - randomUniform()), (1.0f + wi.z), -wi.z);
+    float sinTheta = sqrt(clamp(1.0f - z * z, 0.0f, 1.0f));
+    float x = sinTheta * cos(phi);
+    float y = sinTheta * sin(phi);
+    vec3 c = vec3(x, y, z);
+
+    vec3 h = c + wi;
+    return h;
+}
+
+vec3 sampleGgxVndfNormal(vec3 wi, vec2 alpha) {
+    if (alpha.x < 0.001 && alpha.y < 0.001) return vec3(0.0, 0.0, 1.0);
+    vec3 wiStd = normalize(vec3(wi.xy * alpha, wi.z));
+    vec3 wmStd = sampleGgxVndfHemisphere(wiStd);
+    vec3 wm = normalize(vec3(wmStd.xy * alpha, wmStd.z));
+    return wm;
+}
+
+void frisvad(vec3 n, out vec3 b1, out vec3 b2) {
+    if(n.z < -0.9999999) {
+        b1 = vec3(0.0, -1.0, 0.0);
+        b2 = vec3(-1.0, 0.0, 0.0);
+        return;
+    }
+
+    float a = 1.0 / (1.0 + n.z);
+    float b = -n.x * n.y * a;
+    b1 = vec3(1.0 - n.x * n.x * a, b, -n.x);
+    b2 = vec3(b, 1.0 - n.y * n.y * a, -n.y);
+}
+
+void sampleOutgoingReflection(inout Ray ray, HitRecord record, out vec3 rayTint) {
+    Material material = record.material;
+    vec3 albedo = uvec2(material.albedoTextureHandle) == uvec2(0) ?
+        material.albedo :
+        pow(texture(material.albedoTextureHandle, record.uv).rgb, vec3(2.2));
+    float roughness = uvec2(material.roughnessTextureHandle) == uvec2(0) ?
+        material.roughness :
+        texture(material.roughnessTextureHandle, record.uv).r;
+    float metalness = uvec2(material.metalnessTextureHandle) == uvec2(0) ?
+        material.metalness :
+        texture(material.metalnessTextureHandle, record.uv).r;
+    vec3 normal = uvec2(material.normalTextureHandle) == uvec2(0) ?
+        vec3(0.0, 0.0, 1.0) :
+        texture(material.normalTextureHandle, record.uv).rgb;
+
+    vec3 N = record.normal;
+    vec3 T, B;
+    frisvad(N, T, B);
+    vec3 wiWorld = -ray.dir;
+    vec3 wiTangent = normalize(vec3(dot(wiWorld, T), dot(wiWorld, B), dot(wiWorld, N)));
+
+    vec3 microsurfaceNormal = sampleGgxVndfNormal(wiTangent, pow(vec2(roughness), vec2(2.0)));
+    vec3 specularDirection = reflect(-wiTangent, microsurfaceNormal);
+    vec3 diffuseDirection = sampleCosineHemisphere();
+    float iorOutside = wiTangent.z > 0.0 ? 1.0 : material.ior;
+    float iorInside = wiTangent.z > 0.0 ? material.ior : 1.0;
+    float reflectionFraction = fresnelReflection(wiTangent, microsurfaceNormal, iorOutside, iorInside);
+
+    ray.origin = record.pos + N * 0.001;
+    vec3 woTangent;
+    if (randomUniform() < metalness) {
+        woTangent = specularDirection;
+        rayTint = albedo;
+    } else {
+        if (randomUniform() < reflectionFraction) {
+            woTangent = specularDirection;
+            rayTint = vec3(1.0);
+        } else {
+            woTangent = diffuseDirection;
+            rayTint = albedo;
+        }
+    }
+
+    if (woTangent.z < 0.0) rayTint = vec3(0.0);
+
+    vec3 woWorld = normalize(woTangent.x * T + woTangent.y * B + woTangent.z * N);
+    ray.dir = woWorld;
 }
 
 uniform uint maxBounces;
@@ -196,24 +296,11 @@ vec3 trace(Ray cameraRay) {
 
         if (record.hit) {
             vec3 rayTint;
-
-            vec3 diffuse = uvec2(record.material.diffuseTextureHandle) == uvec2(0) ?
-                record.material.colour :
-                pow(texture(record.material.diffuseTextureHandle, record.uv).rgb, vec3(2.2));
-            float roughness = uvec2(record.material.roughnessTextureHandle) == uvec2(0) ?
-                record.material.roughness :
-                texture(record.material.roughnessTextureHandle, record.uv).r;
-            float metalness = uvec2(record.material.metalnessTextureHandle) == uvec2(0) ?
-                record.material.metalness :
-                texture(record.material.metalnessTextureHandle, record.uv).r;
-            vec3 normal = uvec2(record.material.normalTextureHandle) == uvec2(0) ?
-                vec3(0.0, 0.0, 1.0) :
-                texture(record.material.normalTextureHandle, record.uv).rgb;
-
-            sampleOutgoingReflection(ray, record, rayTint, diffuse, roughness, metalness, normal);
+            sampleOutgoingReflection(ray, record, rayTint);
 
             incomingLight += (record.material.emissionColour * record.material.emissionStrength) * rayColour;
             rayColour *= rayTint;
+            if (rayColour == vec3(0.0)) break;
         } else {
             incomingLight += getSkybox(ray) * rayColour;
             break;
