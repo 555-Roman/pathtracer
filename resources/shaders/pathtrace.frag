@@ -171,10 +171,10 @@ vec3 getSkybox(Ray ray) {
         float a = 0.5*(ray.dir.y + 1.0);
         return mix(vec3(1.0, 1.0, 1.0), vec3(0.5, 0.7, 1.0), a);
     } else if (skyboxFormat == 1) {
-        return texture(skyboxCubemapTexture, ray.dir).rgb;
+        return pow(texture(skyboxCubemapTexture, ray.dir).rgb, vec3(2.2));
     } else if (skyboxFormat == 2) {
         float u = atan(ray.dir.z, ray.dir.x) * 0.5 / 3.1415926 + 0.5;
-        float v = 1.0 - asin(ray.dir.y) / 3.1415926 + 0.5;
+        float v = asin(ray.dir.y) / 3.1415926 + 0.5;
         return pow(texture(skyboxEquirectangularTexture, vec2(u, v)).rgb, vec3(2.2));
     } else {
         return vec3(0.0);
@@ -295,6 +295,9 @@ void sampleOutgoingReflection(inout Ray ray, HitRecord record, out vec3 rayTint)
 
     vec3 woWorld = normalize(woTangent.x * T + woTangent.y * B + woTangent.z * N);
     ray.dir = woWorld;
+
+//    ray.dir = vec3(0.0, 1.0, 0.0);
+//    rayTint = textureN;
 }
 
 uniform uint maxBounces;

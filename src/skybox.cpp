@@ -96,8 +96,6 @@ void setSkyboxCubemapBack(const char* filePath) {
 }
 
 void setSkyboxEquirectangular(const char* filePath) {
-    stbi_set_flip_vertically_on_load(false);
-
     skyboxFormat = 2;
 
     if (skyboxEquirectangularTextureID == 0) glGenTextures(1, &skyboxEquirectangularTextureID);
@@ -125,6 +123,4 @@ void setSkyboxEquirectangular(const char* filePath) {
 
     skyboxEquirectangularTexture = glGetTextureHandleARB(skyboxEquirectangularTextureID);
     glMakeTextureHandleResidentARB(skyboxEquirectangularTexture);
-
-    stbi_set_flip_vertically_on_load(true);
 }
