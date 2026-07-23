@@ -102,6 +102,27 @@ int main() {
 
 
     import(RESOURCES_PATH "models/Untitled.fbx");
+    models[0].material.colour = vec3(0.0);
+    models[0].material.metalness = 1.0;
+
+    Material material = {
+        vec3(0.0),
+        1.0,
+        vec3(1.0, 0.0, 0.0),
+        1.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0,
+        0,
+        0,
+        0
+    };
+    addModel(0, 12, vec3(-1.0, -0.7, 0.5), 1.5, material);
+
+    material.emissionColour = vec3(0.0, 1.0, 0.0);
+    addModel(0, 12, vec3(0.7, 0.4, 0.2), 0.3, material);
 
     setSkyboxEquirectangular(RESOURCES_PATH "textures/rogland_clear_night_4k.png");
 

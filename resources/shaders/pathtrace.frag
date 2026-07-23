@@ -166,6 +166,7 @@ uniform uint skyboxFormat;
 uniform samplerCube skyboxCubemapTexture;
 uniform sampler2D skyboxEquirectangularTexture;
 vec3 getSkybox(Ray ray) {
+//    return vec3(1.0);
     if (skyboxFormat == 0) {
         float a = 0.5*(ray.dir.y + 1.0);
         return mix(vec3(1.0, 1.0, 1.0), vec3(0.5, 0.7, 1.0), a);
@@ -247,15 +248,22 @@ void sampleOutgoingReflection(inout Ray ray, HitRecord record, out vec3 rayTint)
     float metalness = uvec2(material.metalnessTextureHandle) == uvec2(0) ?
         material.metalness :
         texture(material.metalnessTextureHandle, record.uv).r;
-    vec3 normal = uvec2(material.normalTextureHandle) == uvec2(0) ?
+    vec3 textureN = uvec2(material.normalTextureHandle) == uvec2(0) ?
         vec3(0.0, 0.0, 1.0) :
-        texture(material.normalTextureHandle, record.uv).rgb;
+        normalize(texture(material.normalTextureHandle, record.uv).rgb * 2.0 - 1.0);
 
     vec3 N = record.normal;
     vec3 T, B;
     frisvad(N, T, B);
     vec3 wiWorld = -ray.dir;
     vec3 wiTangent = normalize(vec3(dot(wiWorld, T), dot(wiWorld, B), dot(wiWorld, N)));
+
+    bool textureNormal = textureN != vec3(0.0, 0.0, 1.0);
+    vec3 textureT, textureB;
+    if (textureNormal) {
+        frisvad(textureN, textureT, textureB);
+        wiTangent = normalize(vec3(dot(wiTangent, textureT), dot(wiTangent, textureB), dot(wiTangent, textureN)));
+    }
 
     vec3 microsurfaceNormal = sampleGgxVndfNormal(wiTangent, pow(vec2(roughness), vec2(2.0)));
     vec3 specularDirection = reflect(-wiTangent, microsurfaceNormal);
@@ -277,6 +285,10 @@ void sampleOutgoingReflection(inout Ray ray, HitRecord record, out vec3 rayTint)
             woTangent = diffuseDirection;
             rayTint = albedo;
         }
+    }
+
+    if (textureNormal) {
+        woTangent = normalize(woTangent.x * textureT + woTangent.y * textureB + woTangent.z * textureN);
     }
 
     if (woTangent.z < 0.0) rayTint = vec3(0.0);
