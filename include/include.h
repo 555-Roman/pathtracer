@@ -55,16 +55,18 @@ inline GLuint64 getTexture(const char* filePath) {
 }
 
 struct Triangle {
-    vec3 a;
-    float padding_a;
-    vec3 b;
-    float padding_b;
-    vec3 c;
-    float padding_c;
-    vec2 uv_a;
-    vec2 uv_b;
-    vec2 uv_c;
-    vec2 uv_padding;
+    vec3 aPosition;
+    float aU;
+    vec3 bPosition;
+    float bU;
+    vec3 cPosition;
+    float cU;
+    vec3 aNormal;
+    float aV;
+    vec3 bNormal;
+    float bV;
+    vec3 cNormal;
+    float cV;
 };
 
 struct Model {

@@ -18,19 +18,20 @@ void import(const char* filePath) {
 
     if (nullptr == scene) {
         std::cout << importer.GetErrorString() << std::endl;
+        return;
     }
 
-    processScene(scene, filePath);
+    processNode(scene->mRootNode, scene, filePath);
 }
 
-void processScene(const aiScene* scene, const char* filePath) {
-    aiNode* rootNode = scene->mRootNode;
-    for (int childIdx = 0; childIdx < rootNode->mNumChildren; childIdx++) {
-        aiNode* child = rootNode->mChildren[childIdx];
-        for (int meshIdx = 0; meshIdx < child->mNumMeshes; meshIdx++) {
-            aiMesh* mesh = scene->mMeshes[child->mMeshes[meshIdx]];
-            processMesh(mesh, scene, filePath);
-        }
+void processNode(aiNode* node, const aiScene* scene, const char* filePath) {
+    for (int meshIdx = 0; meshIdx < node->mNumMeshes; meshIdx++) {
+        aiMesh* mesh = scene->mMeshes[node->mMeshes[meshIdx]];
+        processMesh(mesh, scene, filePath);
+    }
+    for (int childIdx = 0; childIdx < node->mNumChildren; childIdx++) {
+        aiNode* child = node->mChildren[childIdx];
+        processNode(child, scene, filePath);
     }
 }
 
@@ -61,7 +62,14 @@ void processMesh(aiMesh* mesh, const aiScene* scene, const char* filePath) {
         uint idx0 = face.mIndices[0];
         uint idx1 = face.mIndices[1];
         uint idx2 = face.mIndices[2];
-        triangles.push_back(Triangle{positions[idx0], 0.0, positions[idx1], 0.0, positions[idx2], 0.0, uvs[idx0], uvs[idx1], uvs[idx2], vec2(0.0)});
+        triangles.push_back(Triangle{
+            positions[idx0], uvs[idx0].x,
+            positions[idx1], uvs[idx1].x,
+            positions[idx2], uvs[idx2].x,
+            normals[idx0], uvs[idx0].y,
+            normals[idx1], uvs[idx1].y,
+            normals[idx2], uvs[idx2].y,
+        });
     }
     uint triangleCount = triangles.size() - triangleIndex;
 

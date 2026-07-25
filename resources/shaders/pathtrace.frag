@@ -26,13 +26,18 @@ struct Material {
 };
 
 struct Triangle {
-    vec4 a;
-    vec4 b;
-    vec4 c;
-    vec2 uv_a;
-    vec2 uv_b;
-    vec2 uv_c;
-    vec2 uv_padding;
+    vec3 aPosition;
+    float aU;
+    vec3 bPosition;
+    float bU;
+    vec3 cPosition;
+    float cU;
+    vec3 aNormal;
+    float aV;
+    vec3 bNormal;
+    float bV;
+    vec3 cNormal;
+    float cV;
 };
 
 struct Model {
@@ -90,8 +95,8 @@ HitRecord intersectTriangle(Ray ray, Triangle triangle, float opacity, sampler2D
     HitRecord record;
     record.hit = false;
 
-    vec3 edge1 = triangle.b.xyz - triangle.a.xyz;
-    vec3 edge2 = triangle.c.xyz - triangle.a.xyz;
+    vec3 edge1 = triangle.bPosition - triangle.aPosition;
+    vec3 edge2 = triangle.cPosition - triangle.aPosition;
 
     vec3 normal = normalize(cross(edge1, edge2));
     if (dot(normal, ray.dir) > 0) return record;
@@ -102,7 +107,7 @@ HitRecord intersectTriangle(Ray ray, Triangle triangle, float opacity, sampler2D
     if (abs(det) < 0) return record;
 
     float inv_det = 1.0 / det;
-    vec3 s = ray.origin - triangle.a.xyz;
+    vec3 s = ray.origin - triangle.aPosition;
     float u = inv_det * dot(s, ray_cross_e2);
 
     if (u < 0 || u - 1 > 0) return record;
@@ -116,13 +121,15 @@ HitRecord intersectTriangle(Ray ray, Triangle triangle, float opacity, sampler2D
 
     float w = 1.0 - u - v;
 
-    vec2 uv = triangle.uv_a * w + triangle.uv_b * u + triangle.uv_c * v;
+    vec2 uv = vec2(triangle.aU, triangle.aV) * w + vec2(triangle.bU, triangle.bV) * u + vec2(triangle.cU, triangle.cV) * v;
 
     float alpha = opacity;
     if (uvec2(textureHandle) != uvec2(0)) {
         alpha = texture(textureHandle, uv).a;
     }
     if (randomUniform() >= alpha) return record;
+
+    normal = normalize(triangle.aNormal * w + triangle.bNormal * u + triangle.cNormal * v);
 
     if (t > 0) {
         record.hit = true;
