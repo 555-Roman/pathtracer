@@ -102,6 +102,9 @@ int main() {
 
 
     import(RESOURCES_PATH "models/tests/sphere.glb");
+    models[models.size()-1].material.colour = vec3(1.0);
+    models[models.size()-1].material.metalness = 0.0;
+    models[models.size()-1].material.transmission = 1.0;
 
     setSkyboxEquirectangular(RESOURCES_PATH "textures/rogland_clear_night_4k.png");
 

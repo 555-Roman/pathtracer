@@ -18,7 +18,7 @@ struct Material {
     float roughness;
     float metalness;
     float ior;
-    float padding;
+    float transmission;
     sampler2D albedoTextureHandle;
     sampler2D roughnessTextureHandle;
     sampler2D metalnessTextureHandle;
@@ -258,6 +258,10 @@ void sampleOutgoingReflection(inout Ray ray, HitRecord record, out vec3 rayTint)
     vec3 textureN = uvec2(material.normalTextureHandle) == uvec2(0) ?
         vec3(0.0, 0.0, 1.0) :
         normalize(texture(material.normalTextureHandle, record.uv).rgb * 2.0 - 1.0);
+    float transmission = //uvec2(material.transmissionTextureHandle) == uvec2(0) ?
+        material.transmission //:
+        //texture(material.transmissionTextureHandle, record.uv).r
+    ;
 
     vec3 N = record.normal;
     vec3 T, B;
@@ -272,15 +276,19 @@ void sampleOutgoingReflection(inout Ray ray, HitRecord record, out vec3 rayTint)
         wiTangent = normalize(vec3(dot(wiTangent, textureT), dot(wiTangent, textureB), dot(wiTangent, textureN)));
     }
 
-    vec3 microsurfaceNormal = sampleGgxVndfNormal(wiTangent, pow(vec2(roughness), vec2(2.0)));
-    vec3 specularDirection = reflect(-wiTangent, microsurfaceNormal);
-    vec3 diffuseDirection = sampleCosineHemisphere();
     float iorOutside = wiTangent.z > 0.0 ? 1.0 : material.ior;
     float iorInside = wiTangent.z > 0.0 ? material.ior : 1.0;
+
+    vec3 microsurfaceNormal = sampleGgxVndfNormal(wiTangent, pow(vec2(roughness), vec2(2.0)));
     float reflectionFraction = fresnelReflection(wiTangent, microsurfaceNormal, iorOutside, iorInside);
+
+    vec3 specularDirection = reflect(-wiTangent, microsurfaceNormal);
+    vec3 diffuseDirection = sampleCosineHemisphere();
+    vec3 transmissionDirection = refract(-wiTangent, microsurfaceNormal, iorOutside/iorInside);
 
     ray.origin = record.pos + N * 0.001;
     vec3 woTangent;
+    bool transmitted = false;
     if (randomUniform() < metalness) {
         woTangent = specularDirection;
         rayTint = albedo;
@@ -289,8 +297,14 @@ void sampleOutgoingReflection(inout Ray ray, HitRecord record, out vec3 rayTint)
             woTangent = specularDirection;
             rayTint = vec3(1.0);
         } else {
-            woTangent = diffuseDirection;
             rayTint = albedo;
+            if (randomUniform() < transmission) {
+                ray.origin = record.pos - N * 0.001;
+                woTangent = transmissionDirection;
+                transmitted = true;
+            } else {
+                woTangent = diffuseDirection;
+            }
         }
     }
 
@@ -298,13 +312,11 @@ void sampleOutgoingReflection(inout Ray ray, HitRecord record, out vec3 rayTint)
         woTangent = normalize(woTangent.x * textureT + woTangent.y * textureB + woTangent.z * textureN);
     }
 
-    if (woTangent.z < 0.0) rayTint = vec3(0.0);
+    if (woTangent.z < 0.0 && !transmitted) rayTint = vec3(0.0);
+    if (woTangent.z >= 0.0 && transmitted) rayTint = vec3(0.0);
 
     vec3 woWorld = normalize(woTangent.x * T + woTangent.y * B + woTangent.z * N);
     ray.dir = woWorld;
-
-//    ray.dir = vec3(0.0, 1.0, 0.0);
-//    rayTint = textureN;
 }
 
 uniform uint maxBounces;
