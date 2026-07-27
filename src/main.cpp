@@ -13,8 +13,8 @@
 #include "glm/gtc/type_ptr.hpp"
 #include "stb_image/stb_image.h"
 
-int WINDOW_WIDTH = 640;
-int WINDOW_HEIGHT = 480;
+int WINDOW_WIDTH = 1600/4;
+int WINDOW_HEIGHT = 900/4;
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void processInput(GLFWwindow *window, float dt);
@@ -28,13 +28,14 @@ GLuint textures[2];
 #define FORWARD vec3(0.0, 0.0, -1.0)
 float MOVEMENT_SPEED = 1.0;
 float ROTATION_SPEED = 1.0;
-vec3 cameraPos = vec3(-1.26541, 1.16527, 1.72494);
-float cameraPitch = -0.55158836;
-float cameraYaw = 0.59190965;
-vec3 cameraRight = vec3(0.829889, 0, 0.557929);
-vec3 cameraUp = vec3(0.292452, 0.851611, -0.435006);
-vec3 cameraForward = vec3(0.475138, -0.524174, -0.706743);
+vec3 cameraPos = vec3(0.0, 0.0, 0.8);
+float cameraPitch = 0.0;
+float cameraYaw = 0.0;
+vec3 cameraRight = RIGHT;
+vec3 cameraUp = UP;
+vec3 cameraForward = FORWARD;
 mat3 cameraRotation = mat3(cameraRight, cameraUp, -cameraForward);
+float fov = 39.5978;
 
 uint maxBounces = 3;
 uint samples = 1;
@@ -164,6 +165,7 @@ int main() {
         pathtraceProgram.setUniformMatrix3fv("cameraRotation", 1, value_ptr(cameraRotation));
 
         pathtraceProgram.setUniform2ui("halfScreenSize", WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2);
+        pathtraceProgram.setUniform1f("fov", fov);
 
         pathtraceProgram.setUniform1ui("triangleCount", triangles.size());
         pathtraceProgram.setUniform1ui("modelCount", models.size());

@@ -99,7 +99,7 @@ HitRecord intersectTriangle(Ray ray, Triangle triangle, float opacity, sampler2D
     vec3 edge2 = triangle.cPosition - triangle.aPosition;
 
     vec3 normal = normalize(cross(edge1, edge2));
-    if (dot(normal, ray.dir) > 0) return record;
+//    if (dot(normal, ray.dir) > 0) return record;
 
     vec3 ray_cross_e2 = cross(ray.dir, edge2);
     float det = dot(edge1, ray_cross_e2);
@@ -190,23 +190,23 @@ vec3 getSkybox(Ray ray) {
 
 float fresnelReflection(vec3 wi, vec3 normal, float etaOutside, float etaInside) {
     float cosThetaI = dot(wi, normal);
-    float etaWiSide = etaOutside;
-    float etaNotWiSide = etaInside;
+    float etaI = etaOutside;
+    float etaT = etaInside;
     if (cosThetaI <= 0.0) {
-        etaWiSide = etaInside;
-        etaNotWiSide = etaOutside;
+        etaI = etaInside;
+        etaT = etaOutside;
         cosThetaI = -cosThetaI;
     }
 
     float sinThetaI = sqrt(max(0.0, 1.0 - cosThetaI * cosThetaI));
-    float sinThetaT = etaWiSide / etaNotWiSide * sinThetaI;
+    float sinThetaT = etaI / etaT * sinThetaI;
     if (sinThetaT >= 1.0) return 1.0;
     float cosThetaT = sqrt(max(0.0, 1.0 - sinThetaT * sinThetaT));
 
-    float Rparl =   ((etaNotWiSide * cosThetaI) - (etaWiSide * cosThetaT)) /
-                    ((etaNotWiSide * cosThetaI) + (etaWiSide * cosThetaT));
-    float Rperp =   ((etaWiSide * cosThetaI) - (etaNotWiSide * cosThetaT)) /
-                    ((etaWiSide * cosThetaI) + (etaNotWiSide * cosThetaT));
+    float Rparl =   ((etaT * cosThetaI) - (etaI * cosThetaT)) /
+                    ((etaT * cosThetaI) + (etaI * cosThetaT));
+    float Rperp =   ((etaI * cosThetaI) - (etaT * cosThetaT)) /
+                    ((etaI * cosThetaI) + (etaT * cosThetaT));
     return (Rparl * Rparl + Rperp * Rperp) / 2;
 }
 
@@ -225,6 +225,7 @@ vec3 sampleGgxVndfHemisphere(vec3 wi) {
 
 vec3 sampleGgxVndfNormal(vec3 wi, vec2 alpha) {
     if (alpha.x < 0.001 && alpha.y < 0.001) return vec3(0.0, 0.0, 1.0);
+    if (wi.z < 0.0) wi = -wi;
     vec3 wiStd = normalize(vec3(wi.xy * alpha, wi.z));
     vec3 wmStd = sampleGgxVndfHemisphere(wiStd);
     vec3 wm = normalize(vec3(wmStd.xy * alpha, wmStd.z));
@@ -242,6 +243,25 @@ void frisvad(vec3 n, out vec3 b1, out vec3 b2) {
     float b = -n.x * n.y * a;
     b1 = vec3(1.0 - n.x * n.x * a, b, -n.x);
     b2 = vec3(b, 1.0 - n.y * n.y * a, -n.y);
+}
+
+vec3 reflectBetter(vec3 w, vec3 n) {
+    if (dot(w, n) < 0.0) n = -n;
+    return reflect(-w, n);
+}
+
+vec3 refractBetter(vec3 w, vec3 n, float iorOutside, float iorInside) {
+    float cosThetaI = dot(w, n);
+    float iorI = iorOutside;
+    float iorT = iorInside;
+    if (cosThetaI < 0.0) {
+        cosThetaI = -cosThetaI;
+        iorI = iorInside;
+        iorT = iorOutside;
+        n = -n;
+    }
+
+    return refract(-w, n, iorI/iorT);
 }
 
 void sampleOutgoingReflection(inout Ray ray, HitRecord record, out vec3 rayTint) {
@@ -269,26 +289,27 @@ void sampleOutgoingReflection(inout Ray ray, HitRecord record, out vec3 rayTint)
     vec3 wiWorld = -ray.dir;
     vec3 wiTangent = normalize(vec3(dot(wiWorld, T), dot(wiWorld, B), dot(wiWorld, N)));
 
-    bool textureNormal = textureN != vec3(0.0, 0.0, 1.0);
-    vec3 textureT, textureB;
-    if (textureNormal) {
-        frisvad(textureN, textureT, textureB);
-        wiTangent = normalize(vec3(dot(wiTangent, textureT), dot(wiTangent, textureB), dot(wiTangent, textureN)));
-    }
+//    bool textureNormal = textureN != vec3(0.0, 0.0, 1.0);
+//    vec3 textureT, textureB;
+//    if (textureNormal) {
+//        frisvad(textureN, textureT, textureB);
+//        wiTangent = normalize(vec3(dot(wiTangent, textureT), dot(wiTangent, textureB), dot(wiTangent, textureN)));
+//    }
 
+    /*
     float iorOutside = wiTangent.z > 0.0 ? 1.0 : material.ior;
     float iorInside = wiTangent.z > 0.0 ? material.ior : 1.0;
 
     vec3 microsurfaceNormal = sampleGgxVndfNormal(wiTangent, pow(vec2(roughness), vec2(2.0)));
+    if (wiTangent.z < 0.0) microsurfaceNormal = -microsurfaceNormal;
     float reflectionFraction = fresnelReflection(wiTangent, microsurfaceNormal, iorOutside, iorInside);
 
     vec3 specularDirection = reflect(-wiTangent, microsurfaceNormal);
     vec3 diffuseDirection = sampleCosineHemisphere();
+    if (wiTangent.z < 0.0) diffuseDirection = -diffuseDirection;
     vec3 transmissionDirection = refract(-wiTangent, microsurfaceNormal, iorOutside/iorInside);
 
-    ray.origin = record.pos + N * 0.001;
     vec3 woTangent;
-    bool transmitted = false;
     if (randomUniform() < metalness) {
         woTangent = specularDirection;
         rayTint = albedo;
@@ -297,25 +318,39 @@ void sampleOutgoingReflection(inout Ray ray, HitRecord record, out vec3 rayTint)
             woTangent = specularDirection;
             rayTint = vec3(1.0);
         } else {
-            rayTint = albedo;
             if (randomUniform() < transmission) {
-                ray.origin = record.pos - N * 0.001;
                 woTangent = transmissionDirection;
-                transmitted = true;
+                rayTint = albedo;
             } else {
                 woTangent = diffuseDirection;
+                rayTint = albedo;
             }
         }
     }
 
-    if (textureNormal) {
-        woTangent = normalize(woTangent.x * textureT + woTangent.y * textureB + woTangent.z * textureN);
+//    if (textureNormal) {
+//        woTangent = normalize(woTangent.x * textureT + woTangent.y * textureB + woTangent.z * textureN);
+//    }
+    */
+
+    float reflectionFraction = fresnelReflection(wiTangent, vec3(0.0, 0.0, 1.0), 1.0, material.ior);
+
+    vec3 woTangent;
+    if (randomUniform() < reflectionFraction) {
+        woTangent = reflectBetter(wiTangent, vec3(0.0, 0.0, 1.0));
+        rayTint = vec3(1.0);
+    } else {
+        woTangent = refractBetter(wiTangent, vec3(0.0, 0.0, 1.0), 1.0, material.ior);
+        rayTint = albedo;
     }
 
-    if (woTangent.z < 0.0 && !transmitted) rayTint = vec3(0.0);
-    if (woTangent.z >= 0.0 && transmitted) rayTint = vec3(0.0);
-
     vec3 woWorld = normalize(woTangent.x * T + woTangent.y * B + woTangent.z * N);
+
+    if (dot(woWorld, N) >= 0.0)
+        ray.origin = record.pos + N * 0.001;
+    else
+        ray.origin = record.pos - N * 0.001;
+
     ray.dir = woWorld;
 }
 
