@@ -13,8 +13,8 @@
 #include "glm/gtc/type_ptr.hpp"
 #include "stb_image/stb_image.h"
 
-int WINDOW_WIDTH = 1600/2;
-int WINDOW_HEIGHT = 900/2;
+int WINDOW_WIDTH = 640;
+int WINDOW_HEIGHT = 480;
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void processInput(GLFWwindow *window, float dt);
@@ -28,12 +28,12 @@ GLuint textures[2];
 #define FORWARD vec3(0.0, 0.0, -1.0)
 float MOVEMENT_SPEED = 1.0;
 float ROTATION_SPEED = 1.0;
-vec3 cameraPos = vec3(-2.0, 0.0, 0.0);
-float cameraPitch = 0.0;
-float cameraYaw = 3.1415926 / 2.0;
-vec3 cameraRight = -FORWARD;
-vec3 cameraUp = UP;
-vec3 cameraForward = RIGHT;
+vec3 cameraPos = vec3(-1.26541, 1.16527, 1.72494);
+float cameraPitch = -0.55158836;
+float cameraYaw = 0.59190965;
+vec3 cameraRight = vec3(0.829889, 0, 0.557929);
+vec3 cameraUp = vec3(0.292452, 0.851611, -0.435006);
+vec3 cameraForward = vec3(0.475138, -0.524174, -0.706743);
 mat3 cameraRotation = mat3(cameraRight, cameraUp, -cameraForward);
 // float fov = 39.5978;
 float fov = 90.0;

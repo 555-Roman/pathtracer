@@ -264,6 +264,10 @@ vec3 refractBetter(vec3 w, vec3 n, float iorOutside, float iorInside) {
     return refract(-w, n, iorI/iorT);
 }
 
+bool sameHemisphere(vec3 w0, vec3 w1) {
+    return w0.z * w1.z > 0.0;
+}
+
 void sampleOutgoingReflection(inout Ray ray, HitRecord record, out vec3 rayTint) {
     Material material = record.material;
     vec3 albedo = uvec2(material.albedoTextureHandle) == uvec2(0) ?
@@ -297,56 +301,28 @@ void sampleOutgoingReflection(inout Ray ray, HitRecord record, out vec3 rayTint)
         wiTangent = normalize(vec3(dot(wiWorld, textureT), dot(wiWorld, textureB), dot(wiWorld, textureN)));
     }
 
-    /*
-    float iorOutside = wiTangent.z > 0.0 ? 1.0 : material.ior;
-    float iorInside = wiTangent.z > 0.0 ? material.ior : 1.0;
-
-    vec3 microsurfaceNormal = sampleGgxVndfNormal(wiTangent, pow(vec2(roughness), vec2(2.0)));
-    if (wiTangent.z < 0.0) microsurfaceNormal = -microsurfaceNormal;
-    float reflectionFraction = fresnelReflection(wiTangent, microsurfaceNormal, iorOutside, iorInside);
-
-    vec3 specularDirection = reflect(-wiTangent, microsurfaceNormal);
-    vec3 diffuseDirection = sampleCosineHemisphere();
-    if (wiTangent.z < 0.0) diffuseDirection = -diffuseDirection;
-    vec3 transmissionDirection = refract(-wiTangent, microsurfaceNormal, iorOutside/iorInside);
+    vec3 microfacetNormal = sampleGgxVndfNormal(wiTangent, pow(vec2(roughness), vec2(2.0)));
+    float reflectionFraction = fresnelReflection(wiTangent, microfacetNormal, 1.0, material.ior);
 
     vec3 woTangent;
     if (randomUniform() < metalness) {
-        woTangent = specularDirection;
+        woTangent = reflectBetter(wiTangent, microfacetNormal);
+        if (!sameHemisphere(wiTangent, woTangent)) return;
         rayTint = albedo;
     } else {
         if (randomUniform() < reflectionFraction) {
-            woTangent = specularDirection;
+            woTangent = reflectBetter(wiTangent, microfacetNormal);
+            if (!sameHemisphere(wiTangent, woTangent)) return;
             rayTint = vec3(1.0);
         } else {
             if (randomUniform() < transmission) {
-                woTangent = transmissionDirection;
+                woTangent = refractBetter(wiTangent, microfacetNormal, 1.0, material.ior);
+                if (sameHemisphere(wiTangent, woTangent)) return;
                 rayTint = albedo;
             } else {
-                woTangent = diffuseDirection;
+                woTangent = sampleCosineHemisphere();
                 rayTint = albedo;
             }
-        }
-    }
-
-//    if (textureNormal) {
-//        woTangent = normalize(woTangent.x * textureT + woTangent.y * textureB + woTangent.z * textureN);
-//    }
-    */
-
-    float reflectionFraction = fresnelReflection(wiTangent, vec3(0.0, 0.0, 1.0), 1.0, material.ior);
-
-    vec3 woTangent;
-    if (randomUniform() < reflectionFraction) {
-        woTangent = reflectBetter(wiTangent, vec3(0.0, 0.0, 1.0));
-        rayTint = vec3(1.0);
-    } else {
-        if (randomUniform() < transmission) {
-            woTangent = refractBetter(wiTangent, vec3(0.0, 0.0, 1.0), 1.0, material.ior);
-            rayTint = albedo;
-        } else {
-            woTangent = sampleCosineHemisphere();
-            rayTint = albedo;
         }
     }
 
@@ -362,9 +338,6 @@ void sampleOutgoingReflection(inout Ray ray, HitRecord record, out vec3 rayTint)
         ray.origin = record.pos - N * 0.001;
 
     ray.dir = woWorld;
-
-//    ray.dir = vec3(0.0, 1.0, 0.0);
-//    rayTint = textureN;
 }
 
 uniform uint maxBounces;
