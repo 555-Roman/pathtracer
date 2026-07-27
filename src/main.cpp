@@ -30,13 +30,13 @@ float MOVEMENT_SPEED = 1.0;
 float ROTATION_SPEED = 1.0;
 vec3 cameraPos = vec3(-2.0, 0.0, 0.0);
 float cameraPitch = 0.0;
-float cameraYaw = 0.0;
+float cameraYaw = 3.1415926 / 2.0;
 vec3 cameraRight = -FORWARD;
 vec3 cameraUp = UP;
 vec3 cameraForward = RIGHT;
 mat3 cameraRotation = mat3(cameraRight, cameraUp, -cameraForward);
-float fov = 39.5978;
-// float fov = 90.0;
+// float fov = 39.5978;
+float fov = 90.0;
 
 uint maxBounces = 12;
 uint samples = 1;
@@ -103,7 +103,7 @@ int main() {
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 
-    import(RESOURCES_PATH "models/tests/refraction.glb");
+    import(RESOURCES_PATH "models/Untitled.fbx");
 
     setSkyboxEquirectangular(RESOURCES_PATH "textures/rogland_clear_night_4k.png");
 

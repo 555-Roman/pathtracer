@@ -294,7 +294,7 @@ void sampleOutgoingReflection(inout Ray ray, HitRecord record, out vec3 rayTint)
     if (normalMapping) {
         textureN = normalize(textureN.x * T + textureN.y * B + textureN.z * N);
         frisvad(textureN, textureT, textureB);
-        wiTangent = normalize(vec3(dot(wiTangent, textureT), dot(wiTangent, textureB), dot(wiTangent, textureN)));
+        wiTangent = normalize(vec3(dot(wiWorld, textureT), dot(wiWorld, textureB), dot(wiWorld, textureN)));
     }
 
     /*
@@ -362,6 +362,9 @@ void sampleOutgoingReflection(inout Ray ray, HitRecord record, out vec3 rayTint)
         ray.origin = record.pos - N * 0.001;
 
     ray.dir = woWorld;
+
+//    ray.dir = vec3(0.0, 1.0, 0.0);
+//    rayTint = textureN;
 }
 
 uniform uint maxBounces;
