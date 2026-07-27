@@ -13,8 +13,8 @@
 #include "glm/gtc/type_ptr.hpp"
 #include "stb_image/stb_image.h"
 
-int WINDOW_WIDTH = 1600/4;
-int WINDOW_HEIGHT = 900/4;
+int WINDOW_WIDTH = 1600/2;
+int WINDOW_HEIGHT = 900/2;
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void processInput(GLFWwindow *window, float dt);
@@ -28,16 +28,17 @@ GLuint textures[2];
 #define FORWARD vec3(0.0, 0.0, -1.0)
 float MOVEMENT_SPEED = 1.0;
 float ROTATION_SPEED = 1.0;
-vec3 cameraPos = vec3(0.0, 0.0, 0.8);
+vec3 cameraPos = vec3(-2.0, 0.0, 0.0);
 float cameraPitch = 0.0;
 float cameraYaw = 0.0;
-vec3 cameraRight = RIGHT;
+vec3 cameraRight = -FORWARD;
 vec3 cameraUp = UP;
-vec3 cameraForward = FORWARD;
+vec3 cameraForward = RIGHT;
 mat3 cameraRotation = mat3(cameraRight, cameraUp, -cameraForward);
 float fov = 39.5978;
+// float fov = 90.0;
 
-uint maxBounces = 3;
+uint maxBounces = 12;
 uint samples = 1;
 uint currentFrame = 0;
 
@@ -102,10 +103,7 @@ int main() {
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 
-    import(RESOURCES_PATH "models/tests/sphere.glb");
-    models[models.size()-1].material.colour = vec3(1.0);
-    models[models.size()-1].material.metalness = 0.0;
-    models[models.size()-1].material.transmission = 1.0;
+    import(RESOURCES_PATH "models/tests/refraction.glb");
 
     setSkyboxEquirectangular(RESOURCES_PATH "textures/rogland_clear_night_4k.png");
 

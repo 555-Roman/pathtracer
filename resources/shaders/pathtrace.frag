@@ -289,12 +289,13 @@ void sampleOutgoingReflection(inout Ray ray, HitRecord record, out vec3 rayTint)
     vec3 wiWorld = -ray.dir;
     vec3 wiTangent = normalize(vec3(dot(wiWorld, T), dot(wiWorld, B), dot(wiWorld, N)));
 
-//    bool textureNormal = textureN != vec3(0.0, 0.0, 1.0);
-//    vec3 textureT, textureB;
-//    if (textureNormal) {
-//        frisvad(textureN, textureT, textureB);
-//        wiTangent = normalize(vec3(dot(wiTangent, textureT), dot(wiTangent, textureB), dot(wiTangent, textureN)));
-//    }
+    bool normalMapping = textureN != vec3(0.0, 0.0, 1.0);
+    vec3 textureT, textureB;
+    if (normalMapping) {
+        textureN = normalize(textureN.x * T + textureN.y * B + textureN.z * N);
+        frisvad(textureN, textureT, textureB);
+        wiTangent = normalize(vec3(dot(wiTangent, textureT), dot(wiTangent, textureB), dot(wiTangent, textureN)));
+    }
 
     /*
     float iorOutside = wiTangent.z > 0.0 ? 1.0 : material.ior;
@@ -340,11 +341,20 @@ void sampleOutgoingReflection(inout Ray ray, HitRecord record, out vec3 rayTint)
         woTangent = reflectBetter(wiTangent, vec3(0.0, 0.0, 1.0));
         rayTint = vec3(1.0);
     } else {
-        woTangent = refractBetter(wiTangent, vec3(0.0, 0.0, 1.0), 1.0, material.ior);
-        rayTint = albedo;
+        if (randomUniform() < transmission) {
+            woTangent = refractBetter(wiTangent, vec3(0.0, 0.0, 1.0), 1.0, material.ior);
+            rayTint = albedo;
+        } else {
+            woTangent = sampleCosineHemisphere();
+            rayTint = albedo;
+        }
     }
 
     vec3 woWorld = normalize(woTangent.x * T + woTangent.y * B + woTangent.z * N);
+
+    if (normalMapping) {
+        woWorld = normalize(woTangent.x * textureT + woTangent.y * textureB + woTangent.z * textureN);
+    }
 
     if (dot(woWorld, N) >= 0.0)
         ray.origin = record.pos + N * 0.001;

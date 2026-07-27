@@ -101,10 +101,15 @@ Material getMeshMaterial(aiMesh* mesh, const aiScene* scene, const char* filePat
     float ior = 1.5;
     mat->Get(AI_MATKEY_REFRACTI, ior);
 
+    float transmission = 0.0;
+    mat->Get(AI_MATKEY_TRANSMISSION_FACTOR, transmission);
+
     GLuint64 diffuseTextureHandle = getTextureHandle(aiTextureType_DIFFUSE, mat, filePath);
     GLuint64 roughnessTextureHandle = getTextureHandle(aiTextureType_SHININESS, mat, filePath);
     GLuint64 metalnessTextureHandle = getTextureHandle(aiTextureType_METALNESS, mat, filePath);
     GLuint64 normalTextureHandle = getTextureHandle(aiTextureType_NORMALS, mat, filePath);
+
+    std::cout << colour.r << " " << colour.g << " " << colour.b << std::endl;
 
     return Material{
         vec3(colour.r, colour.g, colour.b),
@@ -114,7 +119,7 @@ Material getMeshMaterial(aiMesh* mesh, const aiScene* scene, const char* filePat
         roughness,
         metalness,
         ior,
-        0.0,
+        transmission,
         diffuseTextureHandle,
         roughnessTextureHandle,
         metalnessTextureHandle,
