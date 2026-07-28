@@ -103,7 +103,7 @@ int main() {
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 
-    import(RESOURCES_PATH "models/Untitled.fbx");
+    import(RESOURCES_PATH "models/tests/inside scene smooth.glb");
 
     setSkyboxEquirectangular(RESOURCES_PATH "textures/rogland_clear_night_4k.png");
 

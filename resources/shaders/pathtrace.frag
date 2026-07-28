@@ -80,10 +80,11 @@ float randomUniform() {
     result = (result >> 22u) ^ result;
     return result / 4294967294.0;
 }
-vec3 sampleCosineHemisphere() {
+vec3 sampleCosineHemisphere(vec3 wi) {
     float phi = 2.0f * 3.1415926 * randomUniform();
 
     float z = sqrt(randomUniform());
+    if (wi.z < 0.0) z = -z;
     float sinTheta = sqrt(clamp(1.0f - z * z, 0.0f, 1.0f));
     float x = sinTheta * cos(phi);
     float y = sinTheta * sin(phi);
@@ -173,7 +174,7 @@ uniform uint skyboxFormat;
 uniform samplerCube skyboxCubemapTexture;
 uniform sampler2D skyboxEquirectangularTexture;
 vec3 getSkybox(Ray ray) {
-//    return vec3(1.0);
+    return vec3(0.0);
     if (skyboxFormat == 0) {
         float a = 0.5*(ray.dir.y + 1.0);
         return mix(vec3(1.0, 1.0, 1.0), vec3(0.5, 0.7, 1.0), a);
@@ -320,7 +321,8 @@ void sampleOutgoingReflection(inout Ray ray, HitRecord record, out vec3 rayTint)
                 if (sameHemisphere(wiTangent, woTangent)) return;
                 rayTint = albedo;
             } else {
-                woTangent = sampleCosineHemisphere();
+                woTangent = sampleCosineHemisphere(wiTangent);
+                if (!sameHemisphere(wiTangent, woTangent)) return;
                 rayTint = albedo;
             }
         }

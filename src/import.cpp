@@ -88,9 +88,9 @@ Material getMeshMaterial(aiMesh* mesh, const aiScene* scene, const char* filePat
 
     aiColor3D emissionColour (0.f,0.f,0.f);
     mat->Get(AI_MATKEY_COLOR_EMISSIVE, emissionColour);
+
     float emissionStrength = 0.0;
-    if (emissionColour.r > 0.0 || emissionColour.g > 0.0 || emissionColour.b > 0.0)
-        emissionStrength = 1.0;
+    mat->Get(AI_MATKEY_EMISSIVE_INTENSITY, emissionStrength);
 
     float roughness = 1.0;
     mat->Get(AI_MATKEY_ROUGHNESS_FACTOR, roughness);
@@ -108,8 +108,6 @@ Material getMeshMaterial(aiMesh* mesh, const aiScene* scene, const char* filePat
     GLuint64 roughnessTextureHandle = getTextureHandle(aiTextureType_SHININESS, mat, filePath);
     GLuint64 metalnessTextureHandle = getTextureHandle(aiTextureType_METALNESS, mat, filePath);
     GLuint64 normalTextureHandle = getTextureHandle(aiTextureType_NORMALS, mat, filePath);
-
-    std::cout << colour.r << " " << colour.g << " " << colour.b << std::endl;
 
     return Material{
         vec3(colour.r, colour.g, colour.b),
