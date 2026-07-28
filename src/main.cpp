@@ -105,8 +105,8 @@ int main() {
 
     import(RESOURCES_PATH "models/tests/inside scene smooth.glb");
 
-    models[1].material.complexN = vec3(0.18299, 0.42108, 1.3734);
-    models[1].material.complexK = vec3(	3.4242, 2.3459, 1.7704);
+    // models[1].material.complexN = vec3(0.18299, 0.42108, 1.3734);
+    // models[1].material.complexK = vec3(	3.4242, 2.3459, 1.7704);
 
     // setSkyboxEquirectangular(RESOURCES_PATH "textures/rogland_clear_night_4k.png");
 

@@ -197,27 +197,23 @@ float fresnelReflection(vec3 wi, vec3 normal, float etaOutside, float etaInside)
     float cosThetaI = dot(wi, normal);
     float etaI = etaOutside;
     float etaT = etaInside;
-    if (cosThetaI <= 0.0) {
+    if (cosThetaI < 0.0) {
         etaI = etaInside;
         etaT = etaOutside;
         cosThetaI = -cosThetaI;
     }
+    float eta = etaT / etaI;
 
-    float sinThetaI = sqrt(max(0.0, 1.0 - cosThetaI * cosThetaI));
-    float sinThetaT = etaI / etaT * sinThetaI;
-    if (sinThetaT >= 1.0) return 1.0;
-    float cosThetaT = sqrt(max(0.0, 1.0 - sinThetaT * sinThetaT));
+    float temp = eta * eta + cosThetaI * cosThetaI - 1;
+    if (temp < 0) return 1;
 
-    float Rparl =   ((etaT * cosThetaI) - (etaI * cosThetaT)) /
-                    ((etaT * cosThetaI) + (etaI * cosThetaT));
-    float Rperp =   ((etaI * cosThetaI) - (etaT * cosThetaT)) /
-                    ((etaI * cosThetaI) + (etaT * cosThetaT));
-    return (Rparl * Rparl + Rperp * Rperp) / 2;
+    float g = sqrt(temp);
+    return 0.5 * pow((g - cosThetaI) / (g + cosThetaI), 2) * (1 + pow(((g + cosThetaI)  * cosThetaI - 1) / ((g - cosThetaI) * cosThetaI+ 1), 2));
 }
 
 vec3 fresnelConductor(vec3 wi, vec3 normal, float etaDielectric, vec3 etaConductor, vec3 kConductor) {
     float cosThetaI = dot(wi, normal);
-    if (cosThetaI <= 0.0) return vec3(0.0);
+    if (cosThetaI < 0.0) return vec3(0.0);
     vec3 eta = etaConductor / etaDielectric;
     vec3 eta2 = eta*eta;
     vec3 k =   kConductor   / etaDielectric;
@@ -238,6 +234,16 @@ vec3 fresnelConductor(vec3 wi, vec3 normal, float etaDielectric, vec3 etaConduct
     vec3 Rp = Rs * (t3 - t4) / (t3 + t4);
 
     return 0.5 * (Rp + Rs);
+}
+
+vec3 schlickFresnel(vec3 wi, vec3 normal, float etaOutside, float etaInside, vec3 albedo) {
+    float cosThetaI = dot(wi, normal);
+    if (cosThetaI < 0.0) return vec3(0.0);
+    cosThetaI = max(cosThetaI, 0.0);
+
+    float x = 1.0 - cosThetaI;
+    x = x*x*x*x*x;
+    return albedo + (1.0 - albedo) * x;
 }
 
 vec3 sampleGgxVndfHemisphere(vec3 wi) {
@@ -339,7 +345,7 @@ void sampleOutgoingReflection(inout Ray ray, HitRecord record, out vec3 rayTint)
         woTangent = reflectBetter(wiTangent, microfacetNormal);
         if (!sameHemisphere(wiTangent, woTangent)) return;
         if (material.complexN == vec3(0.0))
-            rayTint = albedo;
+            rayTint = schlickFresnel(wiTangent, microfacetNormal, 1.0, material.ior, albedo);
         else
             rayTint = fresnelConductor(wiTangent, microfacetNormal, 1.0, material.complexN, material.complexK);
     } else {
