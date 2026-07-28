@@ -104,7 +104,7 @@ Material getMeshMaterial(aiMesh* mesh, const aiScene* scene, const char* filePat
     float transmission = 0.0;
     mat->Get(AI_MATKEY_TRANSMISSION_FACTOR, transmission);
 
-    GLuint64 diffuseTextureHandle = getTextureHandle(aiTextureType_DIFFUSE, mat, filePath);
+    GLuint64 albedoTextureHandle = getTextureHandle(aiTextureType_DIFFUSE, mat, filePath);
     GLuint64 roughnessTextureHandle = getTextureHandle(aiTextureType_SHININESS, mat, filePath);
     GLuint64 metalnessTextureHandle = getTextureHandle(aiTextureType_METALNESS, mat, filePath);
     GLuint64 normalTextureHandle = getTextureHandle(aiTextureType_NORMALS, mat, filePath);
@@ -118,7 +118,11 @@ Material getMeshMaterial(aiMesh* mesh, const aiScene* scene, const char* filePat
         metalness,
         ior,
         transmission,
-        diffuseTextureHandle,
+        vec3(0.0, 0.0, 0.0),
+        0.0,
+        vec3(0.0, 0.0, 0.0),
+        0.0,
+        albedoTextureHandle,
         roughnessTextureHandle,
         metalnessTextureHandle,
         normalTextureHandle

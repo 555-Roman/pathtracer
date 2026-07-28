@@ -28,7 +28,7 @@ GLuint textures[2];
 #define FORWARD vec3(0.0, 0.0, -1.0)
 float MOVEMENT_SPEED = 1.0;
 float ROTATION_SPEED = 1.0;
-vec3 cameraPos = vec3(-1.26541, 1.16527, 1.72494);
+vec3 cameraPos = vec3(0.0, 0.01, 0.0);
 float cameraPitch = -0.55158836;
 float cameraYaw = 0.59190965;
 vec3 cameraRight = vec3(0.829889, 0, 0.557929);
@@ -105,7 +105,10 @@ int main() {
 
     import(RESOURCES_PATH "models/tests/inside scene smooth.glb");
 
-    setSkyboxEquirectangular(RESOURCES_PATH "textures/rogland_clear_night_4k.png");
+    models[1].material.complexN = vec3(0.18299, 0.42108, 1.3734);
+    models[1].material.complexK = vec3(	3.4242, 2.3459, 1.7704);
+
+    // setSkyboxEquirectangular(RESOURCES_PATH "textures/rogland_clear_night_4k.png");
 
 
     GLuint triangle_ssbo;

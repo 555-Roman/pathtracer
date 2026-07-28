@@ -19,6 +19,10 @@ struct Material {
     float metalness;
     float ior;
     float transmission;
+    vec3 complexN;
+    float padding0;
+    vec3 complexK;
+    float padding1;
     sampler2D albedoTextureHandle;
     sampler2D roughnessTextureHandle;
     sampler2D metalnessTextureHandle;
@@ -174,7 +178,7 @@ uniform uint skyboxFormat;
 uniform samplerCube skyboxCubemapTexture;
 uniform sampler2D skyboxEquirectangularTexture;
 vec3 getSkybox(Ray ray) {
-    return vec3(0.0);
+    return vec3(1.0);
     if (skyboxFormat == 0) {
         float a = 0.5*(ray.dir.y + 1.0);
         return mix(vec3(1.0, 1.0, 1.0), vec3(0.5, 0.7, 1.0), a);
@@ -209,6 +213,31 @@ float fresnelReflection(vec3 wi, vec3 normal, float etaOutside, float etaInside)
     float Rperp =   ((etaI * cosThetaI) - (etaT * cosThetaT)) /
                     ((etaI * cosThetaI) + (etaT * cosThetaT));
     return (Rparl * Rparl + Rperp * Rperp) / 2;
+}
+
+vec3 fresnelConductor(vec3 wi, vec3 normal, float etaDielectric, vec3 etaConductor, vec3 kConductor) {
+    float cosThetaI = dot(wi, normal);
+    if (cosThetaI <= 0.0) return vec3(0.0);
+    vec3 eta = etaConductor / etaDielectric;
+    vec3 eta2 = eta*eta;
+    vec3 k =   kConductor   / etaDielectric;
+    vec3 k2 = k*k;
+
+    float cos2ThetaI = cosThetaI * cosThetaI;
+    float sin2ThetaI = 1 - cos2ThetaI;
+
+    vec3 t0 = eta2 - k2 - sin2ThetaI;
+    vec3 a2plusb2 = sqrt(t0 * t0 + 4 * eta2 * k2);
+    vec3 t1 = a2plusb2 + cos2ThetaI;
+    vec3 a = sqrt(0.5f * (a2plusb2 + t0));
+    vec3 t2 = 2 * a * cosThetaI;
+    vec3 Rs = (t1 - t2) / (t1 + t2);
+
+    vec3 t3 = cos2ThetaI * a2plusb2 + sin2ThetaI * sin2ThetaI;
+    vec3 t4 = t2 * sin2ThetaI;
+    vec3 Rp = Rs * (t3 - t4) / (t3 + t4);
+
+    return 0.5 * (Rp + Rs);
 }
 
 vec3 sampleGgxVndfHemisphere(vec3 wi) {
@@ -309,7 +338,10 @@ void sampleOutgoingReflection(inout Ray ray, HitRecord record, out vec3 rayTint)
     if (randomUniform() < metalness) {
         woTangent = reflectBetter(wiTangent, microfacetNormal);
         if (!sameHemisphere(wiTangent, woTangent)) return;
-        rayTint = albedo;
+        if (material.complexN == vec3(0.0))
+            rayTint = albedo;
+        else
+            rayTint = fresnelConductor(wiTangent, microfacetNormal, 1.0, material.complexN, material.complexK);
     } else {
         if (randomUniform() < reflectionFraction) {
             woTangent = reflectBetter(wiTangent, microfacetNormal);

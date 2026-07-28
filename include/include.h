@@ -10,7 +10,7 @@
 using namespace glm;
 
 struct Material {
-    vec3 colour;
+    vec3 albedo;
     float opacity;
     vec3 emissionColour;
     float emissionStrength;
@@ -18,7 +18,11 @@ struct Material {
     float metalness;
     float ior;
     float transmission;
-    GLuint64 diffuseTextureHandle;
+    vec3 complexN;
+    float padding0;
+    vec3 complexK;
+    float padding1;
+    GLuint64 albedoTextureHandle;
     GLuint64 roughnessTextureHandle;
     GLuint64 metalnessTextureHandle;
     GLuint64 normalTextureHandle;
