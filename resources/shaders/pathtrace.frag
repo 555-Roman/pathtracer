@@ -57,7 +57,8 @@ struct HitRecord {
     bool hit;
     float t;
     vec3 pos;
-    vec3 normal;
+    vec3 geometryNormal;
+    vec3 interpolatedNormal;
     vec2 uv;
     Material material;
 };
@@ -109,7 +110,7 @@ HitRecord intersectTriangle(Ray ray, Triangle triangle, float opacity, sampler2D
     vec3 ray_cross_e2 = cross(ray.dir, edge2);
     float det = dot(edge1, ray_cross_e2);
 
-    if (abs(det) < 0) return record;
+    if (abs(det) < 0.001) return record;
 
     float inv_det = 1.0 / det;
     vec3 s = ray.origin - triangle.aPosition;
@@ -124,6 +125,8 @@ HitRecord intersectTriangle(Ray ray, Triangle triangle, float opacity, sampler2D
 
     float t = inv_det * dot(edge2, s_cross_e1);
 
+    if (t <= 0.001) return record;
+
     float w = 1.0 - u - v;
 
     vec2 uv = vec2(triangle.aU, triangle.aV) * w + vec2(triangle.bU, triangle.bV) * u + vec2(triangle.cU, triangle.cV) * v;
@@ -134,15 +137,14 @@ HitRecord intersectTriangle(Ray ray, Triangle triangle, float opacity, sampler2D
     }
     if (randomUniform() >= alpha) return record;
 
-    normal = normalize(triangle.aNormal * w + triangle.bNormal * u + triangle.cNormal * v);
+    vec3 interpolatedNormal = normalize(triangle.aNormal * w + triangle.bNormal * u + triangle.cNormal * v);
 
-    if (t > 0) {
-        record.hit = true;
-        record.t = t;
-        record.pos = ray.origin + ray.dir * t;
-        record.normal = normal;
-        record.uv = uv;
-    }
+    record.hit = true;
+    record.t = t;
+    record.pos = ray.origin + ray.dir * t;
+    record.geometryNormal = normal;
+    record.interpolatedNormal = interpolatedNormal;
+    record.uv = uv;
     return record;
 }
 
@@ -305,6 +307,8 @@ bool sameHemisphere(vec3 w0, vec3 w1) {
 }
 
 void sampleOutgoingReflection(inout Ray ray, HitRecord record, out vec3 rayTint) {
+    rayTint = vec3(0.0);
+
     Material material = record.material;
     vec3 albedo = uvec2(material.albedoTextureHandle) == uvec2(0) ?
         material.albedo :
@@ -323,7 +327,7 @@ void sampleOutgoingReflection(inout Ray ray, HitRecord record, out vec3 rayTint)
         //texture(material.transmissionTextureHandle, record.uv).r
     ;
 
-    vec3 N = record.normal;
+    vec3 N = record.interpolatedNormal;
     vec3 T, B;
     frisvad(N, T, B);
     vec3 wiWorld = -ray.dir;
@@ -373,9 +377,9 @@ void sampleOutgoingReflection(inout Ray ray, HitRecord record, out vec3 rayTint)
     }
 
     if (dot(woWorld, N) >= 0.0)
-        ray.origin = record.pos + N * 0.001;
+        ray.origin = record.pos + record.geometryNormal * 0.01;
     else
-        ray.origin = record.pos - N * 0.001;
+        ray.origin = record.pos - record.geometryNormal * 0.01;
 
     ray.dir = woWorld;
 }
