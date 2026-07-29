@@ -36,12 +36,17 @@ void processNode(aiNode* node, const aiScene* scene, const char* filePath) {
 }
 
 void processMesh(aiMesh* mesh, const aiScene* scene, const char* filePath) {
+    vec3 minPos = vec3(-(1.0f / 0.0f));
+    vec3 maxPos = vec3(+(1.0f / 0.0f));
     std::vector<vec3> positions;
     std::vector<vec3> normals;
     std::vector<vec2> uvs;
     for (int vertexIdx = 0; vertexIdx < mesh->mNumVertices; vertexIdx++) {
-        aiVector3D position = mesh->mVertices[vertexIdx];
-        positions.push_back(vec3(position.x, position.y, position.z));
+        aiVector3D aiPosition = mesh->mVertices[vertexIdx];
+        vec3 position = vec3(aiPosition.x, aiPosition.y, aiPosition.z);
+        minPos = min(minPos, position);
+        maxPos = max(maxPos, position);
+        positions.push_back(position);
         if (mesh->HasNormals()) {
             aiVector3D normal = mesh->mNormals[vertexIdx];
             normals.push_back(vec3(normal.x, normal.y, normal.z));
@@ -55,6 +60,8 @@ void processMesh(aiMesh* mesh, const aiScene* scene, const char* filePath) {
             uvs.push_back(vec2(0.0));
         }
     }
+
+    AABB aabb = {minPos, 0.0, maxPos, 0.0};
 
     uint triangleIndex = triangles.size();
     for (int faceIdx = 0; faceIdx < mesh->mNumFaces; faceIdx++) {
@@ -74,7 +81,7 @@ void processMesh(aiMesh* mesh, const aiScene* scene, const char* filePath) {
     uint triangleCount = triangles.size() - triangleIndex;
 
     Material material = getMeshMaterial(mesh, scene, filePath);
-    models.push_back(Model{triangleIndex, triangleCount, {0, 0}, vec3(0.0), 1.0, material});
+    models.push_back(Model{triangleIndex, triangleCount, {0, 0}, vec3(0.0), 1.0, material, aabb});
 }
 
 Material getMeshMaterial(aiMesh* mesh, const aiScene* scene, const char* filePath) {

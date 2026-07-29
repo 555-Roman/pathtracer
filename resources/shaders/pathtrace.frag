@@ -44,6 +44,13 @@ struct Triangle {
     float cV;
 };
 
+struct AABB {
+    vec3 minPos;
+    float minPadding;
+    vec3 maxPos;
+    float maxPadding;
+};
+
 struct Model {
     uint triangleIndex;
     uint triangleCount;
@@ -51,6 +58,7 @@ struct Model {
     vec3 offset;
     float scale;
     Material material;
+    AABB aabb;
 };
 
 struct HitRecord {
@@ -75,7 +83,7 @@ layout (std430, binding = 1) buffer ModelBuffer {
 
 vec3 safeNormalize(vec3 vector, vec3 fallback) {
     vec3 normalized = normalize(vector);
-    return normalized == vec3(0.0) ? fallback : normalized;
+    return vector == vec3(0.0) ? fallback : normalized;
 }
 
 uint rngState;
@@ -97,6 +105,21 @@ vec3 sampleCosineHemisphere(vec3 wi) {
     return vec3(x, y, z);
 }
 
+bool intersectAABB(Ray ray, AABB aabb, out float tNear) {
+    vec3 invDir = 1.0 / ray.dir;
+
+    vec3 t0 = (aabb.minPos - ray.origin) * invDir;
+    vec3 t1 = (aabb.maxPos - ray.origin) * invDir;
+
+    vec3 tMin = min(t0, t1);
+    vec3 tMax = max(t0, t1);
+
+    tNear = max(max(tMin.x, tMin.y), tMin.z);
+    float tFar  = min(min(tMax.x, tMax.y), tMax.z);
+
+    return tFar >= max(tNear, 0.0);
+}
+
 HitRecord intersectTriangle(Ray ray, Triangle triangle, float opacity, sampler2D textureHandle) {
     HitRecord record;
     record.hit = false;
@@ -110,7 +133,7 @@ HitRecord intersectTriangle(Ray ray, Triangle triangle, float opacity, sampler2D
     vec3 ray_cross_e2 = cross(ray.dir, edge2);
     float det = dot(edge1, ray_cross_e2);
 
-    if (abs(det) < 0.001) return record;
+    if (det == 0.0) return record;
 
     float inv_det = 1.0 / det;
     vec3 s = ray.origin - triangle.aPosition;
@@ -161,8 +184,15 @@ HitRecord intersectScene(Ray ray) {
         localRay.origin /= model.scale;
         localRay.dir /= model.scale;
 
+        float tAABB;
+        bool didIntersectAABB = intersectAABB(localRay, model.aabb, tAABB);
+        if (!didIntersectAABB || tAABB > closestT) {
+            continue;
+        }
+
         for (uint i = model.triangleIndex; i < model.triangleIndex+model.triangleCount; i++) {
             HitRecord record = intersectTriangle(localRay, triangles[i], model.material.opacity, model.material.albedoTextureHandle);
+            record.t *= model.scale;
             if (record.hit && record.t < closestT) {
                 closestRecord = record;
                 closestRecord.pos *= model.scale;
@@ -327,13 +357,14 @@ void sampleOutgoingReflection(inout Ray ray, HitRecord record, out vec3 rayTint)
         //texture(material.transmissionTextureHandle, record.uv).r
     ;
 
-    vec3 N = record.interpolatedNormal;
+//    vec3 N = record.interpolatedNormal;
+    vec3 N = record.geometryNormal;
     vec3 T, B;
     frisvad(N, T, B);
     vec3 wiWorld = -ray.dir;
     vec3 wiTangent = normalize(vec3(dot(wiWorld, T), dot(wiWorld, B), dot(wiWorld, N)));
 
-    bool normalMapping = textureN != vec3(0.0, 0.0, 1.0);
+    bool normalMapping = uvec2(material.normalTextureHandle) != uvec2(0);
     vec3 textureT, textureB;
     if (normalMapping) {
         textureN = normalize(textureN.x * T + textureN.y * B + textureN.z * N);
@@ -345,9 +376,11 @@ void sampleOutgoingReflection(inout Ray ray, HitRecord record, out vec3 rayTint)
     float reflectionFraction = fresnelReflection(wiTangent, microfacetNormal, 1.0, material.ior);
 
     vec3 woTangent;
+    bool woOutside;
     if (randomUniform() < metalness) {
         woTangent = reflectBetter(wiTangent, microfacetNormal);
         if (!sameHemisphere(wiTangent, woTangent)) return;
+        woOutside = true;
         if (material.complexN == vec3(0.0))
             rayTint = schlickFresnel(wiTangent, microfacetNormal, 1.0, material.ior, albedo);
         else
@@ -356,19 +389,22 @@ void sampleOutgoingReflection(inout Ray ray, HitRecord record, out vec3 rayTint)
         if (randomUniform() < reflectionFraction) {
             woTangent = reflectBetter(wiTangent, microfacetNormal);
             if (!sameHemisphere(wiTangent, woTangent)) return;
+            woOutside = true;
             rayTint = vec3(1.0);
         } else {
             if (randomUniform() < transmission) {
                 woTangent = refractBetter(wiTangent, microfacetNormal, 1.0, material.ior);
                 if (sameHemisphere(wiTangent, woTangent)) return;
+                woOutside = false;
                 rayTint = albedo;
             } else {
                 woTangent = sampleCosineHemisphere(wiTangent);
-                if (!sameHemisphere(wiTangent, woTangent)) return;
+                woOutside = true;
                 rayTint = albedo;
             }
         }
     }
+    woOutside = woOutside == (dot(wiWorld, record.geometryNormal) >= 0.0);
 
     vec3 woWorld = normalize(woTangent.x * T + woTangent.y * B + woTangent.z * N);
 
@@ -376,10 +412,10 @@ void sampleOutgoingReflection(inout Ray ray, HitRecord record, out vec3 rayTint)
         woWorld = normalize(woTangent.x * textureT + woTangent.y * textureB + woTangent.z * textureN);
     }
 
-    if (dot(woWorld, N) >= 0.0)
-        ray.origin = record.pos + record.geometryNormal * 0.01;
+    if (woOutside)
+        ray.origin = record.pos + record.geometryNormal * 0.001;
     else
-        ray.origin = record.pos - record.geometryNormal * 0.01;
+        ray.origin = record.pos - record.geometryNormal * 0.001;
 
     ray.dir = woWorld;
 }
@@ -392,6 +428,10 @@ vec3 trace(Ray cameraRay) {
 
     for (uint bounce = 0; bounce <= maxBounces; bounce++) {
         HitRecord record = intersectScene(ray);
+//        return .5 + .5 * ray.dir;
+//        return .5 + .5 * record.geometryNormal;
+//        return .5 + .5 * record.interpolatedNormal;
+//        return vec3(dot(record.geometryNormal, record.interpolatedNormal));
 
         if (record.hit) {
             vec3 rayTint;

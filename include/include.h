@@ -28,6 +28,41 @@ struct Material {
     GLuint64 normalTextureHandle;
 };
 
+struct Triangle {
+    vec3 aPosition;
+    float aU;
+    vec3 bPosition;
+    float bU;
+    vec3 cPosition;
+    float cU;
+    vec3 aNormal;
+    float aV;
+    vec3 bNormal;
+    float bV;
+    vec3 cNormal;
+    float cV;
+};
+
+struct AABB {
+    vec3 minPos;
+    float minPadding;
+    vec3 maxPos;
+    float maxPadding;
+};
+
+struct Model {
+    uint triangleIndex;
+    uint triangleCount;
+    uint padding[2];
+    vec3 offset;
+    float scale;
+    Material material;
+    AABB aabb;
+};
+
+inline std::vector<Triangle> triangles;
+inline std::vector<Model> models;
+
 inline GLuint64 getTexture(const char* filePath) {
     unsigned int cubeTexture;
     glGenTextures(1, &cubeTexture);
@@ -57,32 +92,5 @@ inline GLuint64 getTexture(const char* filePath) {
 
     return cubeTextureHandle;
 }
-
-struct Triangle {
-    vec3 aPosition;
-    float aU;
-    vec3 bPosition;
-    float bU;
-    vec3 cPosition;
-    float cU;
-    vec3 aNormal;
-    float aV;
-    vec3 bNormal;
-    float bV;
-    vec3 cNormal;
-    float cV;
-};
-
-struct Model {
-    uint triangleIndex;
-    uint triangleCount;
-    uint padding[2];
-    vec3 offset;
-    float scale;
-    Material material;
-};
-
-inline std::vector<Triangle> triangles;
-inline std::vector<Model> models;
 
 #endif //PATHTRACER_INCLUDE_H

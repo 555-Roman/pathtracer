@@ -28,12 +28,12 @@ GLuint textures[2];
 #define FORWARD vec3(0.0, 0.0, -1.0)
 float MOVEMENT_SPEED = 1.0;
 float ROTATION_SPEED = 1.0;
-vec3 cameraPos = vec3(0.0, 0.01, 0.0);
-float cameraPitch = -0.55158836;
-float cameraYaw = 0.59190965;
-vec3 cameraRight = vec3(0.829889, 0, 0.557929);
-vec3 cameraUp = vec3(0.292452, 0.851611, -0.435006);
-vec3 cameraForward = vec3(0.475138, -0.524174, -0.706743);
+vec3 cameraPos = vec3(0.878393, 0.315153, 0.620216);
+float cameraPitch = 0.157372;
+float cameraYaw = -1.49109;
+vec3 cameraRight = vec3(0.0796206, 0, -0.996825);
+vec3 cameraUp = vec3(0.156226, 0.987643, 0.0124784);
+vec3 cameraForward = vec3(-0.984507, 0.156723, -0.0786367);
 mat3 cameraRotation = mat3(cameraRight, cameraUp, -cameraForward);
 // float fov = 39.5978;
 float fov = 90.0;
@@ -105,8 +105,8 @@ int main() {
 
     import(RESOURCES_PATH "models/tests/inside scene smooth.glb");
 
-    // models[1].material.complexN = vec3(0.18299, 0.42108, 1.3734);
-    // models[1].material.complexK = vec3(	3.4242, 2.3459, 1.7704);
+    models[1].material.complexN = vec3(0.18299, 0.42108, 1.3734);
+    models[1].material.complexK = vec3(	3.4242, 2.3459, 1.7704);
 
     // setSkyboxEquirectangular(RESOURCES_PATH "textures/rogland_clear_night_4k.png");
 
@@ -276,5 +276,30 @@ void processInput(GLFWwindow *window, float dt) {
         std::cout << "vec3 cameraUp = vec3(" << cameraUp.x << ", " << cameraUp.y << ", " << cameraUp.z << ");" << std::endl;
         std::cout << "vec3 cameraForward = vec3(" << cameraForward.x << ", " << cameraForward.y << ", " << cameraForward.z << ");" << std::endl;
         std::cout << std::endl;
+    }
+
+    if (glfwGetKey(window, GLFW_KEY_M) == GLFW_PRESS) {
+        double x, y;
+        glfwGetCursorPos(window, &x, &y);
+        y = WINDOW_HEIGHT - y;
+        x = 550; y = 140;
+        float pixel[4];
+        glReadPixels(x, y, 1, 1, GL_RGBA, GL_FLOAT, pixel);
+        std::cout << "lower-left  " << x << " " << y << ": " << pixel[0] << " " << pixel[1] << " " << pixel[2] << std::endl;
+    }
+
+    if (glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS) {
+        vec3 normal = vec3(0.761242, -0.351639, 0.544849);
+        vec3 interpolated = vec3(0.697933, 0.160557, 0.697933);
+        vec3 raydir = vec3(-0.699895, 0.142456, 0.699895);
+
+        vec3 wi = -raydir;
+        float darkening = dot(normal, interpolated);
+
+        std::cout << "normal: " << normal.x << ", " << normal.y << ", " << normal.z << std::endl;
+        std::cout << "interpolated" << interpolated.x << ", " << interpolated.y << ", " << interpolated.z << std::endl;
+        std::cout << "raydir: " << raydir.x << ", " << raydir.y << ", " << raydir.z << std::endl;
+        std::cout << "wi: " << wi.x << ", " << wi.y << ", " << wi.z << std::endl;
+        std::cout << "darkening: " << darkening << std::endl;
     }
 }
