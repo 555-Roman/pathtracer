@@ -105,6 +105,16 @@ int main() {
 
     import(RESOURCES_PATH "models/tests/monkey triangulated.glb");
 
+    std::cout << "models: " << models.size() << std::endl;
+    std::cout << "bvhNodes: " << bvhNodes.size() << std::endl;
+    std::cout << std::endl;
+
+    for (BVHNode n : bvhNodes) {
+        std::cout << n.index << std::endl;
+        std::cout << n.triangleCount << std::endl;
+        std::cout << std::endl;
+    }
+
     // setSkyboxEquirectangular(RESOURCES_PATH "textures/rogland_clear_night_4k.png");
 
 
