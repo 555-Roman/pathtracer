@@ -7,6 +7,7 @@
 #include <filesystem>
 
 #include "assimp/scene.h"
+#include "bvh.h"
 
 void import(const char* filePath);
 void processNode(aiNode* node, const aiScene* scene, const char* filePath);
