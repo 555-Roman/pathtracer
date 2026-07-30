@@ -174,6 +174,28 @@ HitRecord intersectTriangle(Ray ray, Triangle triangle, float opacity, sampler2D
     return record;
 }
 
+HitRecord intersectBVH(Ray ray, BVHNode root, float tMax, Material material) {
+    HitRecord closestRecord;
+    closestRecord.hit = false;
+    float closestT = tMax;
+
+    float tAABB;
+    bool didIntersectAABB = intersectAABB(ray, root.minBound, root.maxBound, tAABB);
+    if (!didIntersectAABB) {
+        return closestRecord;
+    }
+
+    for (uint i = root.index; i < root.index + root.triangleCount; i++) {
+        HitRecord record = intersectTriangle(ray, triangles[i], material.opacity, material.albedoTextureHandle);
+        if (record.hit && record.t < closestT) {
+            closestRecord = record;
+            closestT = record.t;
+        }
+    }
+
+    return closestRecord;
+}
+
 HitRecord intersectScene(Ray ray) {
     HitRecord closestRecord;
     closestRecord.hit = false;
@@ -187,24 +209,15 @@ HitRecord intersectScene(Ray ray) {
         localRay.origin /= model.scale;
         localRay.dir /= model.scale;
 
-        BVHNode bvhNode = bvhNodes[model.bvhNodeIndex];
+        BVHNode rootBvhNode = bvhNodes[model.bvhNodeIndex];
 
-        float tAABB;
-        bool didIntersectAABB = intersectAABB(localRay, bvhNode.minBound, bvhNode.maxBound, tAABB);
-        if (!didIntersectAABB || tAABB > closestT) {
-            continue;
-        }
-
-        for (uint i = bvhNode.index; i < bvhNode.index + bvhNode.triangleCount; i++) {
-            HitRecord record = intersectTriangle(localRay, triangles[i], model.material.opacity, model.material.albedoTextureHandle);
-            record.t *= model.scale;
-            if (record.hit && record.t < closestT) {
-                closestRecord = record;
-                closestRecord.pos *= model.scale;
-                closestRecord.pos += model.offset;
-                closestRecord.material = model.material;
-                closestT = record.t;
-            }
+        HitRecord record = intersectBVH(localRay, rootBvhNode, closestT, model.material);
+        if (record.hit && record.t < closestT) {
+            closestRecord = record;
+            closestRecord.pos *= model.scale;
+            closestRecord.pos += model.offset;
+            closestRecord.material = model.material;
+            closestT = record.t;
         }
     }
 
