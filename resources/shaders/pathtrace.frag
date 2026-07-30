@@ -174,22 +174,34 @@ HitRecord intersectTriangle(Ray ray, Triangle triangle, float opacity, sampler2D
     return record;
 }
 
-HitRecord intersectBVH(Ray ray, BVHNode root, float tMax, Material material) {
+HitRecord intersectBVH(Ray ray, uint rootIdx, float tMax, Material material) {
     HitRecord closestRecord;
     closestRecord.hit = false;
     float closestT = tMax;
 
-    float tAABB;
-    bool didIntersectAABB = intersectAABB(ray, root.minBound, root.maxBound, tAABB);
-    if (!didIntersectAABB) {
-        return closestRecord;
-    }
+    uint stack[32];
+    uint stackPtr = 0;
+    stack[stackPtr++] = rootIdx;
 
-    for (uint i = root.index; i < root.index + root.triangleCount; i++) {
-        HitRecord record = intersectTriangle(ray, triangles[i], material.opacity, material.albedoTextureHandle);
-        if (record.hit && record.t < closestT) {
-            closestRecord = record;
-            closestT = record.t;
+    while (stackPtr > 0 && stackPtr <= 32) {
+        BVHNode node = bvhNodes[stack[--stackPtr]];
+        float tAABB;
+        bool didIntersectAABB = intersectAABB(ray, node.minBound, node.maxBound, tAABB);
+        if (!didIntersectAABB || tAABB >= tMax) {
+            continue;
+        }
+
+        if (node.triangleCount > 0) {
+            for (uint i = node.index; i < node.index + node.triangleCount; i++) {
+                HitRecord record = intersectTriangle(ray, triangles[i], material.opacity, material.albedoTextureHandle);
+                if (record.hit && record.t < closestT) {
+                    closestRecord = record;
+                    closestT = record.t;
+                }
+            }
+        } else {
+            stack[stackPtr++] = node.index;
+            stack[stackPtr++] = node.index+1;
         }
     }
 
@@ -209,9 +221,7 @@ HitRecord intersectScene(Ray ray) {
         localRay.origin /= model.scale;
         localRay.dir /= model.scale;
 
-        BVHNode rootBvhNode = bvhNodes[model.bvhNodeIndex];
-
-        HitRecord record = intersectBVH(localRay, rootBvhNode, closestT, model.material);
+        HitRecord record = intersectBVH(localRay, model.bvhNodeIndex, closestT, model.material);
         if (record.hit && record.t < closestT) {
             closestRecord = record;
             closestRecord.pos *= model.scale;
