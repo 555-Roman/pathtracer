@@ -3,7 +3,7 @@
 
 #include "include.h"
 
-#define MAX_DEPTH 1
+#define MAX_DEPTH 31
 
 void buildBVH(uint triangleIndex, uint triangleCount);
 void updateBounds(uint nodeIdx);

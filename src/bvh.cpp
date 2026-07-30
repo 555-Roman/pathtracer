@@ -40,12 +40,12 @@ void subdivide(uint nodeIdx, uint depth) {
     float splitPos = node.minBound[axis] + extent[axis] * 0.5f;
 
     // in-place partition
-    uint i = node.index;
-    uint j = i + node.triangleCount - 1;
+    int i = node.index;
+    int j = i + node.triangleCount - 1;
     while (i <= j) {
-        if (centroids[i][axis] < splitPos)
+        if (centroids[i][axis] < splitPos) {
             i++;
-        else {
+        } else {
             Triangle tA = triangles[i];
             vec3     cA = centroids[i];
             Triangle tB = triangles[j];
