@@ -36,8 +36,8 @@ void processNode(aiNode* node, const aiScene* scene, const char* filePath) {
 }
 
 void processMesh(aiMesh* mesh, const aiScene* scene, const char* filePath) {
-    vec3 minPos = vec3(-(1.0f / 0.0f));
-    vec3 maxPos = vec3(+(1.0f / 0.0f));
+    vec3 minPos = vec3(+(1.0f / 0.0f));
+    vec3 maxPos = vec3(-(1.0f / 0.0f));
     std::vector<vec3> positions;
     std::vector<vec3> normals;
     std::vector<vec2> uvs;

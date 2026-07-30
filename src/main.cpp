@@ -28,12 +28,12 @@ GLuint textures[2];
 #define FORWARD vec3(0.0, 0.0, -1.0)
 float MOVEMENT_SPEED = 1.0;
 float ROTATION_SPEED = 1.0;
-vec3 cameraPos = vec3(0.878393, 0.315153, 0.620216);
-float cameraPitch = 0.157372;
-float cameraYaw = -1.49109;
-vec3 cameraRight = vec3(0.0796206, 0, -0.996825);
-vec3 cameraUp = vec3(0.156226, 0.987643, 0.0124784);
-vec3 cameraForward = vec3(-0.984507, 0.156723, -0.0786367);
+vec3 cameraPos = vec3(3.60623, 2.03037, 2.53275);
+float cameraPitch = -0.396508;
+float cameraYaw = -1.08037;
+vec3 cameraRight = vec3(0.471002, 0, -0.882132);
+vec3 cameraUp = vec3(-0.340679, 0.922415, -0.181901);
+vec3 cameraForward = vec3(-0.813692, -0.386199, -0.43446);
 mat3 cameraRotation = mat3(cameraRight, cameraUp, -cameraForward);
 // float fov = 39.5978;
 float fov = 90.0;
@@ -103,10 +103,7 @@ int main() {
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 
-    import(RESOURCES_PATH "models/tests/inside scene smooth.glb");
-
-    models[1].material.complexN = vec3(0.18299, 0.42108, 1.3734);
-    models[1].material.complexK = vec3(	3.4242, 2.3459, 1.7704);
+    import(RESOURCES_PATH "models/tests/monkey triangulated.glb");
 
     // setSkyboxEquirectangular(RESOURCES_PATH "textures/rogland_clear_night_4k.png");
 

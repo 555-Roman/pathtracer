@@ -81,6 +81,8 @@ layout (std430, binding = 1) buffer ModelBuffer {
     Model models[];
 };
 
+vec3 debugColour = vec3(0.0);
+
 vec3 safeNormalize(vec3 vector, vec3 fallback) {
     vec3 normalized = normalize(vector);
     return vector == vec3(0.0) ? fallback : normalized;
@@ -471,4 +473,7 @@ void main() {
     vec3 accumulatedColour = texture(lastFrame, uv).rgb;
     float weight = 1.0 / float(currentFrame + 1u);
     FragColor = vec4(mix(accumulatedColour, rayColour, weight), 1.0);
+
+    if (debugColour != vec3(0.0))
+        FragColor = vec4(debugColour, 1.0);
 }
