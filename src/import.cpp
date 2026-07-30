@@ -61,8 +61,6 @@ void processMesh(aiMesh* mesh, const aiScene* scene, const char* filePath) {
         }
     }
 
-    AABB aabb = {minPos, 0.0, maxPos, 0.0};
-
     uint triangleIndex = triangles.size();
     for (int faceIdx = 0; faceIdx < mesh->mNumFaces; faceIdx++) {
         aiFace face = mesh->mFaces[faceIdx];
@@ -80,8 +78,11 @@ void processMesh(aiMesh* mesh, const aiScene* scene, const char* filePath) {
     }
     uint triangleCount = triangles.size() - triangleIndex;
 
+    BVHNode bvhNode = {minPos, triangleIndex, maxPos, triangleCount};
+    uint bvhNodeIndex = bvhNodes.size();
+    bvhNodes.push_back(bvhNode);
     Material material = getMeshMaterial(mesh, scene, filePath);
-    models.push_back(Model{triangleIndex, triangleCount, {0, 0}, vec3(0.0), 1.0, material, aabb});
+    models.push_back(Model{bvhNodeIndex, {0, 0, 0}, vec3(0.0), 1.0, material});
 }
 
 Material getMeshMaterial(aiMesh* mesh, const aiScene* scene, const char* filePath) {

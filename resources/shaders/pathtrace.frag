@@ -44,21 +44,19 @@ struct Triangle {
     float cV;
 };
 
-struct AABB {
-    vec3 minPos;
-    float minPadding;
-    vec3 maxPos;
-    float maxPadding;
+struct BVHNode {
+    vec3 minBound;
+    uint index;
+    vec3 maxBound;
+    uint triangleCount;
 };
 
 struct Model {
-    uint triangleIndex;
-    uint triangleCount;
-    uint padding[2];
+    uint bvhNodeIndex;
+    uint padding[3];
     vec3 offset;
     float scale;
     Material material;
-    AABB aabb;
 };
 
 struct HitRecord {
@@ -71,13 +69,16 @@ struct HitRecord {
     Material material;
 };
 
-uniform uint triangleCount;
 layout (std430, binding = 0) buffer TriangleBuffer {
     Triangle triangles[];
 };
 
+layout (std430, binding = 1) buffer BVHNodeBuffer {
+    BVHNode bvhNodes[];
+};
+
 uniform uint modelCount;
-layout (std430, binding = 1) buffer ModelBuffer {
+layout (std430, binding = 2) buffer ModelBuffer {
     Model models[];
 };
 
@@ -107,11 +108,11 @@ vec3 sampleCosineHemisphere(vec3 wi) {
     return vec3(x, y, z);
 }
 
-bool intersectAABB(Ray ray, AABB aabb, out float tNear) {
+bool intersectAABB(Ray ray, vec3 minBound, vec3 maxBound, out float tNear) {
     vec3 invDir = 1.0 / ray.dir;
 
-    vec3 t0 = (aabb.minPos - ray.origin) * invDir;
-    vec3 t1 = (aabb.maxPos - ray.origin) * invDir;
+    vec3 t0 = (minBound - ray.origin) * invDir;
+    vec3 t1 = (maxBound - ray.origin) * invDir;
 
     vec3 tMin = min(t0, t1);
     vec3 tMax = max(t0, t1);
@@ -186,13 +187,15 @@ HitRecord intersectScene(Ray ray) {
         localRay.origin /= model.scale;
         localRay.dir /= model.scale;
 
+        BVHNode bvhNode = bvhNodes[model.bvhNodeIndex];
+
         float tAABB;
-        bool didIntersectAABB = intersectAABB(localRay, model.aabb, tAABB);
+        bool didIntersectAABB = intersectAABB(localRay, bvhNode.minBound, bvhNode.maxBound, tAABB);
         if (!didIntersectAABB || tAABB > closestT) {
             continue;
         }
 
-        for (uint i = model.triangleIndex; i < model.triangleIndex+model.triangleCount; i++) {
+        for (uint i = bvhNode.index; i < bvhNode.index + bvhNode.triangleCount; i++) {
             HitRecord record = intersectTriangle(localRay, triangles[i], model.material.opacity, model.material.albedoTextureHandle);
             record.t *= model.scale;
             if (record.hit && record.t < closestT) {

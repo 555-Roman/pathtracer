@@ -43,24 +43,23 @@ struct Triangle {
     float cV;
 };
 
-struct AABB {
-    vec3 minPos;
-    float minPadding;
-    vec3 maxPos;
-    float maxPadding;
+struct BVHNode {
+    vec3 minBound;
+    uint index;
+    vec3 maxBound;
+    uint triangleCount;
 };
 
 struct Model {
-    uint triangleIndex;
-    uint triangleCount;
-    uint padding[2];
+    uint bvhNodeIndex;
+    uint padding[3];
     vec3 offset;
     float scale;
     Material material;
-    AABB aabb;
 };
 
 inline std::vector<Triangle> triangles;
+inline std::vector<BVHNode> bvhNodes;
 inline std::vector<Model> models;
 
 inline GLuint64 getTexture(const char* filePath) {

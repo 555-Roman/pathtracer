@@ -115,11 +115,18 @@ int main() {
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, triangle_ssbo);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
+    GLuint bvhNode_ssbo;
+    glGenBuffers(1, &bvhNode_ssbo);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, bvhNode_ssbo);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, bvhNodes.size() * sizeof(BVHNode), bvhNodes.data(), GL_DYNAMIC_COPY);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, bvhNode_ssbo);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+
     GLuint model_ssbo;
     glGenBuffers(1, &model_ssbo);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, model_ssbo);
     glBufferData(GL_SHADER_STORAGE_BUFFER, models.size() * sizeof(Model), models.data(), GL_DYNAMIC_COPY);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, model_ssbo);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, model_ssbo);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
     GLuint fbo;
@@ -165,7 +172,6 @@ int main() {
         pathtraceProgram.setUniform2ui("halfScreenSize", WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2);
         pathtraceProgram.setUniform1f("fov", fov);
 
-        pathtraceProgram.setUniform1ui("triangleCount", triangles.size());
         pathtraceProgram.setUniform1ui("modelCount", models.size());
 
         pathtraceProgram.setUniform1ui("maxBounces", maxBounces);
