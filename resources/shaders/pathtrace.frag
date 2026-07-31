@@ -187,13 +187,15 @@ HitRecord intersectBVH(Ray ray, uint rootIdx, float tMax, Material material) {
         BVHNode node = bvhNodes[stack[--stackPtr]];
         float tAABB;
         bool didIntersectAABB = intersectAABB(ray, node.minBound, node.maxBound, tAABB);
-        if (!didIntersectAABB || tAABB >= tMax) {
+        debugColour.r += 1.0;
+        if (!didIntersectAABB || tAABB >= closestT) {
             continue;
         }
 
         if (node.triangleCount > 0) {
             for (uint i = node.index; i < node.index + node.triangleCount; i++) {
                 HitRecord record = intersectTriangle(ray, triangles[i], material.opacity, material.albedoTextureHandle);
+                debugColour.g += 1.0;
                 if (record.hit && record.t < closestT) {
                     closestRecord = record;
                     closestT = record.t;
@@ -456,10 +458,7 @@ vec3 trace(Ray cameraRay) {
 
     for (uint bounce = 0; bounce <= maxBounces; bounce++) {
         HitRecord record = intersectScene(ray);
-//        return .5 + .5 * ray.dir;
-//        return .5 + .5 * record.geometryNormal;
-//        return .5 + .5 * record.interpolatedNormal;
-//        return vec3(dot(record.geometryNormal, record.interpolatedNormal));
+        return vec3(0.0);
 
         if (record.hit) {
             vec3 rayTint;
@@ -501,5 +500,5 @@ void main() {
     FragColor = vec4(mix(accumulatedColour, rayColour, weight), 1.0);
 
     if (debugColour != vec3(0.0))
-        FragColor = vec4(debugColour, 1.0);
+        FragColor = vec4(debugColour / vec3(32.0, 10.0, 1.0), 1.0);
 }

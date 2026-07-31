@@ -42,6 +42,12 @@ uint maxBounces = 12;
 uint samples = 1;
 uint currentFrame = 0;
 
+bool benchmark = false;
+float benchmarkStart = 0.0f;
+#define BENCHMARK_STEPS 3600.0f
+#define BENCHMARK_DISTANCE 1.0f
+#define BENCHMARK_CENTER vec3(0.0, 0.0, 0.0)
+
 int main() {
     stbi_set_flip_vertically_on_load(true);
 
@@ -103,7 +109,7 @@ int main() {
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 
-    import(RESOURCES_PATH "models/tests/monkey triangulated.glb");
+    import(RESOURCES_PATH "models/tests/dragon.obj");
 
     // setSkyboxEquirectangular(RESOURCES_PATH "textures/rogland_clear_night_4k.png");
 
@@ -150,7 +156,24 @@ int main() {
         deltaTime = currentTime - lastTime;
         lastTime = currentTime;
 
-        processInput(window, deltaTime);
+
+        if (benchmark) {
+            if (float(currentFrame) / BENCHMARK_STEPS >= 1.0) {
+                benchmark = false;
+                currentFrame = 0;
+                continue;
+            }
+            float x, z;
+            x = BENCHMARK_DISTANCE * sin(float(currentFrame) / BENCHMARK_STEPS * 2.0f * 3.1415926f);
+            z = BENCHMARK_DISTANCE * cos(float(currentFrame) / BENCHMARK_STEPS * 2.0f * 3.1415926f);
+            cameraPos = vec3(x, 0.0, z) + BENCHMARK_CENTER;
+            cameraForward = normalize(BENCHMARK_CENTER - cameraPos);
+            cameraRight = normalize(cross(cameraForward, vec3(0.0, 1.0, 0.0)));
+            cameraUp = normalize(cross(cameraRight, cameraForward));
+            cameraRotation = mat3(cameraRight, cameraUp, -cameraForward);
+        } else {
+            processInput(window, deltaTime);
+        }
 
 
         glBindFramebuffer(GL_FRAMEBUFFER, fbo);
@@ -197,6 +220,11 @@ int main() {
         displayProgram.setUniform1i("accumulatedTexture", 0);
 
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+
+        if (benchmark) {
+            std::cout << float(currentFrame) / BENCHMARK_STEPS * 360.0f << ": " << deltaTime << "  " << 1.0f / deltaTime << std::endl;
+        }
 
 
         glfwSwapBuffers(window);
@@ -304,5 +332,11 @@ void processInput(GLFWwindow *window, float dt) {
         std::cout << "raydir: " << raydir.x << ", " << raydir.y << ", " << raydir.z << std::endl;
         std::cout << "wi: " << wi.x << ", " << wi.y << ", " << wi.z << std::endl;
         std::cout << "darkening: " << darkening << std::endl;
+    }
+
+    if (glfwGetKey(window, GLFW_KEY_B) == GLFW_PRESS) {
+        benchmark = true;
+        benchmarkStart = glfwGetTime();
+        currentFrame = 0;
     }
 }
