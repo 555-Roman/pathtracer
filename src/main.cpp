@@ -26,14 +26,14 @@ GLuint textures[2];
 #define RIGHT vec3(1.0, 0.0, 0.0)
 #define UP vec3(0.0, 1.0, 0.0)
 #define FORWARD vec3(0.0, 0.0, -1.0)
-float MOVEMENT_SPEED = 1.0;
+float MOVEMENT_SPEED = 10.0;
 float ROTATION_SPEED = 1.0;
-vec3 cameraPos = vec3(3.60623, 2.03037, 2.53275);
-float cameraPitch = -0.396508;
-float cameraYaw = -1.08037;
-vec3 cameraRight = vec3(0.471002, 0, -0.882132);
-vec3 cameraUp = vec3(-0.340679, 0.922415, -0.181901);
-vec3 cameraForward = vec3(-0.813692, -0.386199, -0.43446);
+vec3 cameraPos = vec3(14.2282, 18.136, 2.55665);
+float cameraPitch = -0.484159;
+float cameraYaw = -1.42489;
+vec3 cameraRight = vec3(0.145391, 0, -0.989374);
+vec3 cameraUp = vec3(-0.460518, 0.885067, -0.067674);
+vec3 cameraForward = vec3(-0.875662, -0.465464, -0.12868);
 mat3 cameraRotation = mat3(cameraRight, cameraUp, -cameraForward);
 // float fov = 39.5978;
 float fov = 90.0;
@@ -44,9 +44,10 @@ uint currentFrame = 0;
 
 bool benchmark = false;
 float benchmarkStart = 0.0f;
-#define BENCHMARK_STEPS 3600.0f
-#define BENCHMARK_DISTANCE 1.0f
-#define BENCHMARK_CENTER vec3(0.0, 0.0, 0.0)
+#define BENCHMARK_STEPS 360.0f
+#define BENCHMARK_DISTANCE 16.0f
+#define BENCHMARK_CENTER vec3(0.0, 6.0, 0.0)
+uint displayDebug = 0;
 
 int main() {
     stbi_set_flip_vertically_on_load(true);
@@ -64,6 +65,7 @@ int main() {
     }
     glfwMakeContextCurrent(window);
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+    glfwSwapInterval(0);
 
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
         std::cout << "Failed to initialize GLAD" << std::endl;
@@ -109,7 +111,11 @@ int main() {
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 
-    import(RESOURCES_PATH "models/tests/dragon.obj");
+    import(RESOURCES_PATH "models/tests/sponza/sponza.obj");
+
+    std::cout << models.size() << std::endl;
+    std::cout << bvhNodes.size() << std::endl;
+    std::cout << std::endl;
 
     // setSkyboxEquirectangular(RESOURCES_PATH "textures/rogland_clear_night_4k.png");
 
@@ -149,12 +155,18 @@ int main() {
 
     double currentTime = glfwGetTime();
     double lastTime = currentTime;
-    float deltaTime;
+    double deltaTime;
+
+    GLuint query;
+    glGenQueries(1, &query);
 
     while (!glfwWindowShouldClose(window)) {
         currentTime = glfwGetTime();
         deltaTime = currentTime - lastTime;
         lastTime = currentTime;
+
+
+        glfwPollEvents();
 
 
         if (benchmark) {
@@ -163,18 +175,21 @@ int main() {
                 currentFrame = 0;
                 continue;
             }
+
             float x, z;
             x = BENCHMARK_DISTANCE * sin(float(currentFrame) / BENCHMARK_STEPS * 2.0f * 3.1415926f);
             z = BENCHMARK_DISTANCE * cos(float(currentFrame) / BENCHMARK_STEPS * 2.0f * 3.1415926f);
+
             cameraPos = vec3(x, 0.0, z) + BENCHMARK_CENTER;
             cameraForward = normalize(BENCHMARK_CENTER - cameraPos);
             cameraRight = normalize(cross(cameraForward, vec3(0.0, 1.0, 0.0)));
             cameraUp = normalize(cross(cameraRight, cameraForward));
             cameraRotation = mat3(cameraRight, cameraUp, -cameraForward);
+
+            glBeginQuery(GL_TIME_ELAPSED, query);
         } else {
             processInput(window, deltaTime);
         }
-
 
         glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 
@@ -204,11 +219,23 @@ int main() {
         pathtraceProgram.setUniformHandleui64ARB("skyboxEquirectangularTexture", skyboxEquirectangularTexture);
         pathtraceProgram.setUniform1ui("skyboxFormat", skyboxFormat);
 
+        pathtraceProgram.setUniform1ui("displayDebug", displayDebug);
+
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, lastFrameTexture);
         pathtraceProgram.setUniform1i("lastFrame", 0);
 
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+
+        if (benchmark) {
+            glEndQuery(GL_TIME_ELAPSED);
+
+            GLuint64 ns;
+            glGetQueryObjectui64v(query, GL_QUERY_RESULT, &ns);
+
+            std::cout << float(currentFrame) / BENCHMARK_STEPS * 360.0f << ": " << ns / 1e6 << "  " << 1000.0 / (ns / 1e6) << std::endl;
+        }
 
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -222,13 +249,8 @@ int main() {
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
 
-        if (benchmark) {
-            std::cout << float(currentFrame) / BENCHMARK_STEPS * 360.0f << ": " << deltaTime << "  " << 1.0f / deltaTime << std::endl;
-        }
-
-
         glfwSwapBuffers(window);
-        glfwPollEvents();
+
 
         currentFrame++;
     }
@@ -313,30 +335,19 @@ void processInput(GLFWwindow *window, float dt) {
         double x, y;
         glfwGetCursorPos(window, &x, &y);
         y = WINDOW_HEIGHT - y;
-        x = 550; y = 140;
         float pixel[4];
         glReadPixels(x, y, 1, 1, GL_RGBA, GL_FLOAT, pixel);
         std::cout << "lower-left  " << x << " " << y << ": " << pixel[0] << " " << pixel[1] << " " << pixel[2] << std::endl;
     }
 
-    if (glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS) {
-        vec3 normal = vec3(0.761242, -0.351639, 0.544849);
-        vec3 interpolated = vec3(0.697933, 0.160557, 0.697933);
-        vec3 raydir = vec3(-0.699895, 0.142456, 0.699895);
-
-        vec3 wi = -raydir;
-        float darkening = dot(normal, interpolated);
-
-        std::cout << "normal: " << normal.x << ", " << normal.y << ", " << normal.z << std::endl;
-        std::cout << "interpolated" << interpolated.x << ", " << interpolated.y << ", " << interpolated.z << std::endl;
-        std::cout << "raydir: " << raydir.x << ", " << raydir.y << ", " << raydir.z << std::endl;
-        std::cout << "wi: " << wi.x << ", " << wi.y << ", " << wi.z << std::endl;
-        std::cout << "darkening: " << darkening << std::endl;
-    }
-
     if (glfwGetKey(window, GLFW_KEY_B) == GLFW_PRESS) {
         benchmark = true;
         benchmarkStart = glfwGetTime();
+        currentFrame = 0;
+    }
+
+    if (glfwGetKey(window, GLFW_KEY_N) == GLFW_PRESS) {
+        displayDebug = !displayDebug;
         currentFrame = 0;
     }
 }

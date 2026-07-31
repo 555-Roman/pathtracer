@@ -179,6 +179,9 @@ HitRecord intersectBVH(Ray ray, uint rootIdx, float tMax, Material material) {
     closestRecord.hit = false;
     float closestT = tMax;
 
+    debugColour.b += 1;
+    if (AABBDst(ray, bvhNodes[rootIdx].minBound, bvhNodes[rootIdx].maxBound) >= closestT) return closestRecord;
+
     uint stack[32];
     uint stackPtr = 0;
     stack[stackPtr++] = rootIdx;
@@ -187,10 +190,11 @@ HitRecord intersectBVH(Ray ray, uint rootIdx, float tMax, Material material) {
         BVHNode node = bvhNodes[stack[--stackPtr]];
 
         if (node.triangleCount > 0) {
+            debugColour.r += node.triangleCount;
             for (uint i = node.index; i < node.index + node.triangleCount; i++) {
                 HitRecord record = intersectTriangle(ray, triangles[i], material.opacity, material.albedoTextureHandle);
-                debugColour.g += 1.0;
                 if (record.hit && record.t < closestT) {
+                    debugColour.g = i;
                     closestRecord = record;
                     closestT = record.t;
                 }
@@ -203,7 +207,7 @@ HitRecord intersectBVH(Ray ray, uint rootIdx, float tMax, Material material) {
 
             float dstA = AABBDst(ray, childA.minBound, childA.maxBound);
             float dstB = AABBDst(ray, childB.minBound, childB.maxBound);
-            debugColour.r += 2;
+            debugColour.b += 2;
 
             bool isNearestA = dstA <= dstB;
             float dstNear = isNearestA ? dstA : dstB;
@@ -467,9 +471,18 @@ vec3 trace(Ray cameraRay) {
 
     for (uint bounce = 0; bounce <= maxBounces; bounce++) {
         HitRecord record = intersectScene(ray);
-        return vec3(0.0);
+//        return vec3(0.0);
 //        return record.geometryNormal * .5 + .5;
 //        return record.interpolatedNormal * .5 + .5;
+        uint tmp = rngState;
+        rngState = uint(debugColour.g);
+        vec3 triangleColour = vec3(
+            .2 + .7 * randomUniform(),
+            .2 + .7 * randomUniform(),
+            .2 + .7 * randomUniform()
+        );
+        rngState = tmp;
+        return triangleColour;
 
         if (record.hit) {
             vec3 rayTint;
@@ -493,6 +506,7 @@ uniform uint samples;
 uniform uint currentFrame;
 in vec2 uv;
 uniform sampler2D lastFrame;
+uniform uint displayDebug;
 
 void main() {
     uvec2 FragCoord = uvec2(gl_FragCoord.xy * halfScreenSize) * 2;
@@ -510,6 +524,8 @@ void main() {
     float weight = 1.0 / float(currentFrame + 1u);
     FragColor = vec4(mix(accumulatedColour, rayColour, weight), 1.0);
 
-    if (debugColour != vec3(0.0))
-        FragColor = vec4(debugColour / vec3(32.0, 10.0, 1.0), 1.0);
+    if (displayDebug > 0) {
+        FragColor = vec4(debugColour / vec3(10000.0, 1.0 / 0.0, 1000.0), 1.0);
+        if (max(FragColor.r, FragColor.b) > 1.0) FragColor = vec4(1.0);
+    }
 }
