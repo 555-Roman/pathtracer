@@ -108,19 +108,19 @@ vec3 sampleCosineHemisphere(vec3 wi) {
     return vec3(x, y, z);
 }
 
-bool intersectAABB(Ray ray, vec3 minBound, vec3 maxBound, out float tNear) {
+float AABBDst(Ray ray, vec3 minBound, vec3 maxBound) {
     vec3 invDir = 1.0 / ray.dir;
 
-    vec3 t0 = (minBound - ray.origin) * invDir;
-    vec3 t1 = (maxBound - ray.origin) * invDir;
+    vec3 tMin = (minBound - ray.origin) / ray.dir;
+    vec3 tMax = (maxBound - ray.origin) / ray.dir;
+    vec3 t1 = min(tMin, tMax);
+    vec3 t2 = max(tMin, tMax);
+    float tNear = max(max(t1.x, t1.y), t1.z);
+    float tFar = min(min(t2.x, t2.y), t2.z);
 
-    vec3 tMin = min(t0, t1);
-    vec3 tMax = max(t0, t1);
-
-    tNear = max(max(tMin.x, tMin.y), tMin.z);
-    float tFar  = min(min(tMax.x, tMax.y), tMax.z);
-
-    return tFar >= max(tNear, 0.0);
+    bool hit = tFar >= tNear && tFar > 0;
+    float dst = hit ? tNear > 0 ? tNear : 0 : 1.0 / 0.0;
+    return dst;
 }
 
 HitRecord intersectTriangle(Ray ray, Triangle triangle, float opacity, sampler2D textureHandle) {
@@ -185,12 +185,6 @@ HitRecord intersectBVH(Ray ray, uint rootIdx, float tMax, Material material) {
 
     while (stackPtr > 0 && stackPtr <= 32) {
         BVHNode node = bvhNodes[stack[--stackPtr]];
-        float tAABB;
-        bool didIntersectAABB = intersectAABB(ray, node.minBound, node.maxBound, tAABB);
-        debugColour.r += 1.0;
-        if (!didIntersectAABB || tAABB >= closestT) {
-            continue;
-        }
 
         if (node.triangleCount > 0) {
             for (uint i = node.index; i < node.index + node.triangleCount; i++) {
@@ -202,8 +196,23 @@ HitRecord intersectBVH(Ray ray, uint rootIdx, float tMax, Material material) {
                 }
             }
         } else {
-            stack[stackPtr++] = node.index;
-            stack[stackPtr++] = node.index+1;
+            uint childIndexA = node.index + 0;
+            uint childIndexB = node.index + 1;
+            BVHNode childA = bvhNodes[childIndexA];
+            BVHNode childB = bvhNodes[childIndexB];
+
+            float dstA = AABBDst(ray, childA.minBound, childA.maxBound);
+            float dstB = AABBDst(ray, childB.minBound, childB.maxBound);
+            debugColour.r += 2;
+
+            bool isNearestA = dstA <= dstB;
+            float dstNear = isNearestA ? dstA : dstB;
+            float dstFar = isNearestA ? dstB : dstA;
+            uint childIndexNear = isNearestA ? childIndexA : childIndexB;
+            uint childIndexFar = isNearestA ? childIndexB : childIndexA;
+
+            if (dstFar < closestT) stack[stackPtr++] = childIndexFar;
+            if (dstNear < closestT) stack[stackPtr++] = childIndexNear;
         }
     }
 
@@ -387,8 +396,8 @@ void sampleOutgoingReflection(inout Ray ray, HitRecord record, out vec3 rayTint)
         //texture(material.transmissionTextureHandle, record.uv).r
     ;
 
-//    vec3 N = record.interpolatedNormal;
-    vec3 N = record.geometryNormal;
+    vec3 N = record.interpolatedNormal;
+//    vec3 N = record.geometryNormal;
     vec3 T, B;
     frisvad(N, T, B);
     vec3 wiWorld = -ray.dir;
@@ -459,6 +468,8 @@ vec3 trace(Ray cameraRay) {
     for (uint bounce = 0; bounce <= maxBounces; bounce++) {
         HitRecord record = intersectScene(ray);
         return vec3(0.0);
+//        return record.geometryNormal * .5 + .5;
+//        return record.interpolatedNormal * .5 + .5;
 
         if (record.hit) {
             vec3 rayTint;
