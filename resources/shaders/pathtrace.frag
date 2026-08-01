@@ -474,15 +474,16 @@ vec3 trace(Ray cameraRay) {
 //        return vec3(0.0);
 //        return record.geometryNormal * .5 + .5;
 //        return record.interpolatedNormal * .5 + .5;
-        uint tmp = rngState;
-        rngState = uint(debugColour.g);
-        vec3 triangleColour = vec3(
-            .2 + .7 * randomUniform(),
-            .2 + .7 * randomUniform(),
-            .2 + .7 * randomUniform()
-        );
-        rngState = tmp;
-        return triangleColour;
+
+//        uint tmp = rngState;
+//        rngState = uint(debugColour.g);
+//        vec3 triangleColour = vec3(
+//            .2 + .7 * randomUniform(),
+//            .2 + .7 * randomUniform(),
+//            .2 + .7 * randomUniform()
+//        );
+//        rngState = tmp;
+//        return triangleColour;
 
         if (record.hit) {
             vec3 rayTint;

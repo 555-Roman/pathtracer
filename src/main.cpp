@@ -26,25 +26,25 @@ GLuint textures[2];
 #define RIGHT vec3(1.0, 0.0, 0.0)
 #define UP vec3(0.0, 1.0, 0.0)
 #define FORWARD vec3(0.0, 0.0, -1.0)
-float MOVEMENT_SPEED = 10.0;
+float MOVEMENT_SPEED = 1.0;
 float ROTATION_SPEED = 1.0;
-vec3 cameraPos = vec3(2.0, 4.0, 3.0);
-float cameraPitch = -0.484159;
+vec3 cameraPos = vec3(13.5923, 7.61136, 2.30896);
+float cameraPitch = 0.0166577;
 float cameraYaw = -1.42489;
-vec3 cameraRight = vec3(0.145391, 0, -0.989374);
-vec3 cameraUp = vec3(-0.460518, 0.885067, -0.067674);
-vec3 cameraForward = vec3(-0.875662, -0.465464, -0.12868);
+vec3 cameraRight = vec3(0.145389, 0, -0.989375);
+vec3 cameraUp = vec3(0.0164799, 0.999861, 0.00242173);
+vec3 cameraForward = vec3(-0.989237, 0.0166569, -0.145369);
 mat3 cameraRotation = mat3(cameraRight, cameraUp, -cameraForward);
 // float fov = 39.5978;
 float fov = 90.0;
 
-uint maxBounces = 12;
+uint maxBounces = 5;
 uint samples = 1;
 uint currentFrame = 0;
 
 bool benchmark = false;
 float benchmarkStart = 0.0f;
-#define BENCHMARK_STEPS 360.0f
+#define BENCHMARK_STEPS 3600.0f
 #define BENCHMARK_DISTANCE 16.0f
 #define BENCHMARK_CENTER vec3(0.0, 7.0, 0.0)
 uint displayDebug = 0;
@@ -114,7 +114,7 @@ int main() {
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 
-    import(RESOURCES_PATH "models/tests/sponza/sponza.obj");
+    import(RESOURCES_PATH "models/tests/bunny.obj");
 
     std::cout << models.size() << std::endl;
     std::cout << bvhNodes.size() << std::endl;
