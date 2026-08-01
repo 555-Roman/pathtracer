@@ -74,7 +74,22 @@ void processMesh(aiMesh* mesh, const aiScene* scene, const char* filePath) {
     uint triangleCount = triangles.size() - triangleIndex;
 
     uint bvhNodeIndex = bvhNodes.size();
+
+    auto start = std::chrono::high_resolution_clock::now();
+
     buildBVH(triangleIndex, triangleCount);
+
+    auto end = std::chrono::high_resolution_clock::now();
+
+    auto us = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+    auto s = std::chrono::duration_cast<std::chrono::seconds>(end - start).count();
+    std::cout << "buildBVH() timings: " << std::endl;
+    std::cout << "  " << us << "us" << std::endl;
+    std::cout << "  " << ms << "ms" << std::endl;
+    std::cout << "  " <<  s <<  "s" << std::endl;
+    std::cout << std::endl;
+
     Material material = getMeshMaterial(mesh, scene, filePath);
     models.push_back(Model{bvhNodeIndex, {0, 0, 0}, vec3(0.0), 1.0, material});
 }

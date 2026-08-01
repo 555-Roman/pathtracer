@@ -28,7 +28,7 @@ GLuint textures[2];
 #define FORWARD vec3(0.0, 0.0, -1.0)
 float MOVEMENT_SPEED = 10.0;
 float ROTATION_SPEED = 1.0;
-vec3 cameraPos = vec3(14.2282, 18.136, 2.55665);
+vec3 cameraPos = vec3(2.0, 4.0, 3.0);
 float cameraPitch = -0.484159;
 float cameraYaw = -1.42489;
 vec3 cameraRight = vec3(0.145391, 0, -0.989374);
@@ -46,8 +46,11 @@ bool benchmark = false;
 float benchmarkStart = 0.0f;
 #define BENCHMARK_STEPS 360.0f
 #define BENCHMARK_DISTANCE 16.0f
-#define BENCHMARK_CENTER vec3(0.0, 6.0, 0.0)
+#define BENCHMARK_CENTER vec3(0.0, 7.0, 0.0)
 uint displayDebug = 0;
+
+// INSIDE center 35; dst 40
+// OUTSIDE center 33; dst 77
 
 int main() {
     stbi_set_flip_vertically_on_load(true);

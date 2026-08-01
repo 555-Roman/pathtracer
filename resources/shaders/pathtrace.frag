@@ -525,7 +525,7 @@ void main() {
     FragColor = vec4(mix(accumulatedColour, rayColour, weight), 1.0);
 
     if (displayDebug > 0) {
-        FragColor = vec4(debugColour / vec3(10000.0, 1.0 / 0.0, 1000.0), 1.0);
+        FragColor = vec4(debugColour / vec3(10.0, 1.0 / 0.0, 100.0), 1.0);
         if (max(FragColor.r, FragColor.b) > 1.0) FragColor = vec4(1.0);
     }
 }
