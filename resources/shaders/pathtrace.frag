@@ -401,7 +401,6 @@ void sampleOutgoingReflection(inout Ray ray, HitRecord record, out vec3 rayTint)
     ;
 
     vec3 N = record.interpolatedNormal;
-//    vec3 N = record.geometryNormal;
     vec3 T, B;
     frisvad(N, T, B);
     vec3 wiWorld = -ray.dir;
@@ -471,19 +470,6 @@ vec3 trace(Ray cameraRay) {
 
     for (uint bounce = 0; bounce <= maxBounces; bounce++) {
         HitRecord record = intersectScene(ray);
-//        return vec3(0.0);
-        return record.geometryNormal * .5 + .5;
-//        return record.interpolatedNormal * .5 + .5;
-
-//        uint tmp = rngState;
-//        rngState = uint(debugColour.g);
-//        vec3 triangleColour = vec3(
-//            .2 + .7 * randomUniform(),
-//            .2 + .7 * randomUniform(),
-//            .2 + .7 * randomUniform()
-//        );
-//        rngState = tmp;
-//        return triangleColour;
 
         if (record.hit) {
             vec3 rayTint;

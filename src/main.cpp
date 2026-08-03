@@ -4,6 +4,7 @@
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
+#include "imgui_stdlib.h"
 
 #include <iostream>
 #include <vector>
@@ -132,35 +133,17 @@ int main() {
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 
-    import(RESOURCES_PATH "models/rock/Rock1.obj");
-
-    std::cout << models.size() << std::endl;
-    std::cout << bvhNodes.size() << std::endl;
-    std::cout << std::endl;
-
     // setSkyboxEquirectangular(RESOURCES_PATH "textures/rogland_clear_night_4k.png");
 
 
-    GLuint triangle_ssbo;
     glGenBuffers(1, &triangle_ssbo);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, triangle_ssbo);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, triangles.size() * sizeof(Triangle), triangles.data(), GL_DYNAMIC_COPY);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, triangle_ssbo);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
-    GLuint bvhNode_ssbo;
     glGenBuffers(1, &bvhNode_ssbo);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, bvhNode_ssbo);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, bvhNodes.size() * sizeof(BVHNode), bvhNodes.data(), GL_DYNAMIC_COPY);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, bvhNode_ssbo);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
-    GLuint model_ssbo;
     glGenBuffers(1, &model_ssbo);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, model_ssbo);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, models.size() * sizeof(Model), models.data(), GL_DYNAMIC_COPY);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, model_ssbo);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
     GLuint fbo;
     glGenFramebuffers(1, &fbo);
@@ -181,6 +164,8 @@ int main() {
     GLuint query;
     glGenQueries(1, &query);
 
+    std::string importFilePath;
+
     while (!glfwWindowShouldClose(window)) {
         currentTime = glfwGetTime();
         deltaTime = currentTime - lastTime;
@@ -196,6 +181,12 @@ int main() {
         ImGui::NewFrame();
 
         ImGui::Begin("test");
+
+        ImGui::InputText("Import file path: ", &importFilePath);
+        ImGui::SameLine();
+        if (ImGui::Button("Import")) {
+            importAndSend(importFilePath.c_str());
+        }
 
         ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
 

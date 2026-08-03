@@ -60,8 +60,11 @@ struct Model {
 };
 
 inline std::vector<Triangle> triangles;
+inline GLuint triangle_ssbo;
 inline std::vector<BVHNode> bvhNodes;
+inline GLuint bvhNode_ssbo;
 inline std::vector<Model> models;
+inline GLuint model_ssbo;
 
 inline GLuint64 getTexture(const char* filePath) {
     unsigned int cubeTexture;

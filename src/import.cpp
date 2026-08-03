@@ -5,6 +5,18 @@
 #include <assimp/postprocess.h>
 #include <assimp/material.h>
 
+void importAndSend(const char* filePath) {
+    import(filePath);
+
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, triangle_ssbo);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, triangles.size() * sizeof(Triangle), triangles.data(), GL_DYNAMIC_COPY);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, bvhNode_ssbo);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, bvhNodes.size() * sizeof(BVHNode), bvhNodes.data(), GL_DYNAMIC_COPY);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, model_ssbo);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, models.size() * sizeof(Model), models.data(), GL_DYNAMIC_COPY);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+}
+
 void import(const char* filePath) {
     auto start = std::chrono::high_resolution_clock::now();
 

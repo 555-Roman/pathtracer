@@ -9,9 +9,11 @@ target_sources(imgui PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/imgui_widgets.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/misc/cpp/imgui_stdlib.cpp
 )
 target_include_directories(imgui PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}
         ${CMAKE_CURRENT_SOURCE_DIR}/backends
+        ${CMAKE_CURRENT_SOURCE_DIR}/misc/cpp
 )
 target_link_libraries(imgui PUBLIC glfw)

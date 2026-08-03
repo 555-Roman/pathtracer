@@ -9,6 +9,7 @@
 #include "assimp/scene.h"
 #include "bvh.h"
 
+void importAndSend(const char* filePath);
 void import(const char* filePath);
 void processNode(aiNode* node, const aiScene* scene, const char* filePath);
 void processMesh(aiMesh* mesh, const aiScene* scene, const char* filePath);
