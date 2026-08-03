@@ -40,6 +40,7 @@ add_subdirectory(thirdParty/glad)
 add_subdirectory(thirdParty/glm-1.0.3)
 add_subdirectory(thirdParty/stb_image)
 add_subdirectory(thirdParty/assimp)
+add_subdirectory(thirdParty/imgui-docking)
 
 
 file(GLOB_RECURSE MY_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
@@ -56,12 +57,12 @@ if(PRODUCTION_BUILD)
     target_compile_definitions("${CMAKE_PROJECT_NAME}" PUBLIC RESOURCES_PATH="./resources/")
 
     target_compile_definitions("${CMAKE_PROJECT_NAME}" PUBLIC PRODUCTION_BUILD=1)
-    target_compile_definitions("${CMAKE_PROJECT_NAME}" PUBLIC DEVELOPLEMT_BUILD=0)
+    target_compile_definitions("${CMAKE_PROJECT_NAME}" PUBLIC DEVELOPMENT_BUILD=0)
 else()
     target_compile_definitions("${CMAKE_PROJECT_NAME}" PUBLIC RESOURCES_PATH="${CMAKE_CURRENT_SOURCE_DIR}/resources/")
 
     target_compile_definitions("${CMAKE_PROJECT_NAME}" PUBLIC PRODUCTION_BUILD=0)
-    target_compile_definitions("${CMAKE_PROJECT_NAME}" PUBLIC DEVELOPLEMT_BUILD=1)
+    target_compile_definitions("${CMAKE_PROJECT_NAME}" PUBLIC DEVELOPMENT_BUILD=1)
 endif()
 
 target_sources("${CMAKE_PROJECT_NAME}" PRIVATE ${MY_SOURCES} )
@@ -77,4 +78,4 @@ endif()
 target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include/")
 
 
-target_link_libraries("${CMAKE_PROJECT_NAME}" PRIVATE glfw glad glm stb_image assimp)
+target_link_libraries("${CMAKE_PROJECT_NAME}" PRIVATE glfw glad glm stb_image assimp imgui)

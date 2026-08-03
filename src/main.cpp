@@ -1,9 +1,13 @@
-#include <filesystem>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_opengl3.h"
+
 #include <iostream>
 #include <vector>
+#include <filesystem>
 
 #include "include.h"
 #include "model.h"
@@ -28,7 +32,7 @@ GLuint textures[2];
 #define FORWARD vec3(0.0, 0.0, -1.0)
 float MOVEMENT_SPEED = 1.0;
 float ROTATION_SPEED = 1.0;
-vec3 cameraPos = vec3(13.5923, 7.61136, 2.30896);
+vec3 cameraPos = vec3(0);
 float cameraPitch = 0.0166577;
 float cameraYaw = -1.42489;
 vec3 cameraRight = vec3(0.145389, 0, -0.989375);
@@ -82,6 +86,20 @@ int main() {
     }
 
 
+    // Setup Dear ImGui context
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;         // Enable Docking
+    io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;       // Enable Multi-Viewport / Platform Windows
+
+    // Setup Platform/Renderer backends
+    ImGui_ImplGlfw_InitForOpenGL(window, true);          // Second param install_callback=true will install GLFW callbacks and chain to existing ones.
+    ImGui_ImplOpenGL3_Init();
+
+
     pathtraceProgram = Shader(RESOURCES_PATH "shaders/pathtrace.vert", RESOURCES_PATH "shaders/pathtrace.frag");
 
     displayProgram = Shader(RESOURCES_PATH "shaders/display.vert", RESOURCES_PATH "shaders/display.frag");
@@ -114,7 +132,7 @@ int main() {
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 
-    import(RESOURCES_PATH "models/tests/bunny.obj");
+    import(RESOURCES_PATH "models/rock/Rock1.obj");
 
     std::cout << models.size() << std::endl;
     std::cout << bvhNodes.size() << std::endl;
@@ -172,6 +190,18 @@ int main() {
         glfwPollEvents();
 
 
+        // Start the Dear ImGui frame
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+
+        ImGui::Begin("test");
+
+        ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
+
+        ImGui::End();
+
+
         if (benchmark) {
             if (float(currentFrame) / BENCHMARK_STEPS >= 1.0) {
                 benchmark = false;
@@ -191,7 +221,8 @@ int main() {
 
             glBeginQuery(GL_TIME_ELAPSED, query);
         } else {
-            processInput(window, deltaTime);
+            if (!io.WantCaptureKeyboard)
+                processInput(window, deltaTime);
         }
 
         glBindFramebuffer(GL_FRAMEBUFFER, fbo);
@@ -252,6 +283,23 @@ int main() {
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
 
+        // Rendering
+        ImGui::Render();
+        int display_w, display_h;
+        glfwGetFramebufferSize(window, &display_w, &display_h);
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+        // Update and Render additional Platform Windows
+        // (Platform functions may change the current OpenGL context, so we save/restore it to make it easier to paste this code elsewhere.
+        //  For this specific demo app we could also call glfwMakeContextCurrent(window) directly)
+        if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
+            GLFWwindow* backup_current_context = glfwGetCurrentContext();
+            ImGui::UpdatePlatformWindows();
+            ImGui::RenderPlatformWindowsDefault();
+            glfwMakeContextCurrent(backup_current_context);
+        }
+
+
         glfwSwapBuffers(window);
 
 
@@ -261,6 +309,10 @@ int main() {
     glDeleteVertexArrays(1, &VAO);
     glDeleteBuffers(1, &VBO);
     glDeleteBuffers(1, &EBO);
+
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
 
     glfwTerminate();
     return 0;

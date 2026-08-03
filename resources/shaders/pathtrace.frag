@@ -472,7 +472,7 @@ vec3 trace(Ray cameraRay) {
     for (uint bounce = 0; bounce <= maxBounces; bounce++) {
         HitRecord record = intersectScene(ray);
 //        return vec3(0.0);
-//        return record.geometryNormal * .5 + .5;
+        return record.geometryNormal * .5 + .5;
 //        return record.interpolatedNormal * .5 + .5;
 
 //        uint tmp = rngState;

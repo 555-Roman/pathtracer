@@ -6,6 +6,8 @@
 #include <assimp/material.h>
 
 void import(const char* filePath) {
+    auto start = std::chrono::high_resolution_clock::now();
+
     Assimp::Importer importer;
 
     const aiScene* scene = importer.ReadFile(filePath,
@@ -22,6 +24,17 @@ void import(const char* filePath) {
     }
 
     processNode(scene->mRootNode, scene, filePath);
+
+    auto end = std::chrono::high_resolution_clock::now();
+
+    auto us = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+    auto s = std::chrono::duration_cast<std::chrono::seconds>(end - start).count();
+    std::cout << "import(\"" << filePath << "\") timings: " << std::endl;
+    std::cout << "  " << us << "us" << std::endl;
+    std::cout << "  " << ms << "ms" << std::endl;
+    std::cout << "  " <<  s <<  "s" << std::endl;
+    std::cout << std::endl;
 }
 
 void processNode(aiNode* node, const aiScene* scene, const char* filePath) {
