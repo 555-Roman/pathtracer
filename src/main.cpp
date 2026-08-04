@@ -56,77 +56,12 @@ bool fullscreenViewport = false;
 bool wantCaptureKeyboard = true;
 bool viewportFocused = false;
 
-// dragon: 1.0, 0.0
-// sponza 16.0, 7.0
 bool benchmark = false;
 float benchmarkStart = 0.0f;
-#define BENCHMARK_STEPS 3600.0f
-#define BENCHMARK_DISTANCE 0.0f
-#define BENCHMARK_CENTER vec3(0.0, 7.0, 0.0)
-uint displayDebug = 0;
-
-// INSIDE center 35; dst 40
-// OUTSIDE center 33; dst 77
-
-/*
-Triangles: 66447
-
-SPLIT_METHOD 2
-  without:
-    SAH cost:   85.2881
-    buildBVH(): 1130ms
-    import():   1260ms
-    BVHNodes:   124577
-  with:
-    SAH cost:   81.0162
-    buildBVH(): 1110ms
-    import():   1234ms
-    BVHNodes:   63395
-
-SPLIT_METHOD 3
-  without:
-    SAH cost:   83.5954
-    buildBVH(): 155ms
-    import():   281ms
-    BVHNodes:   124645
-  with:
-    wrong indices:
-      SAH cost:   79.3448
-      buildBVH(): 153ms
-      import():   280ms
-      BVHNodes:   63991
-    right indices:
-      SAH cost:   81.0162
-      buildBVH(): 155ms
-      import():   281ms
-      BVHNodes:   63395
-
-100 bins:
-    SAH cost:   81.0162
-    buildBVH(): 155ms
-    import():   281ms
-    BVHNodes:   63395
-64 bins:
-    SAH cost:   77.0776
-    buildBVH(): 107ms
-    import():   236ms
-    BVHNodes:   63629
-32 bins:
-    SAH cost:   79.5824
-    buildBVH(): 68ms
-    import():   209ms
-    BVHNodes:   63851
-31 bins:
-    SAH cost:   76.8466
-    buildBVH(): 64ms
-    import():   187ms
-    BVHNodes:   63103
-16 bins:
-    SAH cost:   76.8152
-    buildBVH(): 46ms
-    import():   173ms
-    BVHNodes:   63931
-*/
+float BENCHMARK_STEPS = 3600.0f;
+float BENCHMARK_DISTANCE = 0.0f;
+vec3 BENCHMARK_CENTER = vec3(0.0, 7.0, 0.0);
+bool displayDebug = false;
 
 int main() {
     stbi_set_flip_vertically_on_load(true);
@@ -257,6 +192,8 @@ int main() {
     float debugMaxAABBIntersections = 340.0;
     bool accumulate = false;
 
+    float test = 0.0;
+
     while (!glfwWindowShouldClose(window)) {
         currentTime = glfwGetTime();
         deltaTime = currentTime - lastTime;
@@ -277,7 +214,7 @@ int main() {
             ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
 
 
-            ImGui::Begin("viewport");
+            ImGui::Begin("Viewport");
             {
                 // Using a Child allow to fill all the space of the window.
                 // It also alows customization
@@ -312,7 +249,7 @@ int main() {
             }
             ImGui::End();
 
-            ImGui::Begin("test");
+            ImGui::Begin("Options");
             {
                 ImGui::InputText("Import file path", &importFilePath);
                 ImGui::SameLine();
@@ -323,9 +260,9 @@ int main() {
 
                 ImGui::NewLine();
 
-                if (ImGui::SliderInt("Max Bounces", &maxBounces, 0, 12))
+                if (ImGui::DragInt("Max Bounces", &maxBounces, 1, 0, INT_MAX))
                     currentFrame = 0;
-                ImGui::SliderInt("Samples per Frame", &samples, 1, 20);
+                ImGui::DragInt("Samples per Frame", &samples, 1, 1, INT_MAX);
                 if (ImGui::Button("Reset Accumulation"))
                     currentFrame = 0;
                 ImGui::SameLine();
@@ -333,10 +270,46 @@ int main() {
 
                 ImGui::NewLine();
 
-                ImGui::SliderFloat("Debug Max Triangle Intersections", &debugMaxTriangleIntersections, 1.0, 10000.0);
-                ImGui::SliderFloat("Debug Max AABB Intersections", &debugMaxAABBIntersections, 1.0, 50000.0);
+                ImGui::DragFloat("Movement Speed", &MOVEMENT_SPEED, 0.1);
+                ImGui::DragFloat("Rotation Speed", &ROTATION_SPEED, 0.1);
+                ImGui::DragFloat3("Camera Position", (float*)&cameraPos, 0.1);
+                if (ImGui::DragFloat("Camera Yaw", &cameraYaw, 1.0 / 180.0 * 3.1415926)) {
+                    mat4 tmp = mat4(1.0);
+                    tmp = rotate(tmp, -cameraYaw, UP);
+                    tmp = rotate(tmp, cameraPitch, RIGHT);
+                    cameraRotation = mat3(tmp);
+                    cameraForward = cameraRotation * FORWARD;
+                    cameraRight = cameraRotation * RIGHT;
+                    cameraUp = cameraRotation * UP;
+                }
+                if (ImGui::DragFloat("Camera Pitch", &cameraPitch, 1.0 / 180.0 * 3.1415926)) {
+                    mat4 tmp = mat4(1.0);
+                    tmp = rotate(tmp, -cameraYaw, UP);
+                    tmp = rotate(tmp, cameraPitch, RIGHT);
+                    cameraRotation = mat3(tmp);
+                    cameraForward = cameraRotation * FORWARD;
+                    cameraRight = cameraRotation * RIGHT;
+                    cameraUp = cameraRotation * UP;
+                }
+
+                ImGui::NewLine();
 
                 ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
+            }
+            ImGui::End();
+
+            ImGui::Begin("Debug");
+            {
+                if (ImGui::Checkbox("Display intersection heatmap", &displayDebug))
+                    currentFrame = 0;
+                ImGui::DragFloat("Triangle Intersections Divisor", &debugMaxTriangleIntersections, 1.0, 1.0, INFINITY);
+                ImGui::DragFloat("AABB Intersections Divisor", &debugMaxAABBIntersections, 1.0, 1.0, INFINITY);
+
+                ImGui::NewLine();
+
+                ImGui::DragFloat("Benchmark Steps", &BENCHMARK_STEPS, 1.0, 1.0, INFINITY);
+                ImGui::DragFloat("Benchmark Distance", &BENCHMARK_DISTANCE, 0.1);
+                ImGui::DragFloat3("Benchmark Center", (float*)&BENCHMARK_CENTER, 0.1);
             }
             ImGui::End();
         }
@@ -397,7 +370,7 @@ int main() {
         pathtraceProgram.setUniformHandleui64ARB("skyboxEquirectangularTexture", skyboxEquirectangularTexture);
         pathtraceProgram.setUniform1ui("skyboxFormat", skyboxFormat);
 
-        pathtraceProgram.setUniform1ui("displayDebug", displayDebug);
+        pathtraceProgram.setUniform1ui("displayDebug", displayDebug ? 1 : 0);
         pathtraceProgram.setUniform1f("debugMaxTriangleIntersections", debugMaxTriangleIntersections);
         pathtraceProgram.setUniform1f("debugMaxAABBIntersections", debugMaxAABBIntersections);
 
@@ -561,11 +534,6 @@ void processInput(GLFWwindow *window, float dt) {
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
     if (wantCaptureKeyboard && !viewportFocused) return;
-
-    if (glfwGetKey(window, GLFW_KEY_N) == GLFW_PRESS) {
-        displayDebug = !displayDebug;
-        currentFrame = 0;
-    }
 
     if (key == GLFW_KEY_F && action == GLFW_PRESS) {
         fullscreenViewport = !fullscreenViewport;

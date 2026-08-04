@@ -461,6 +461,8 @@ void sampleOutgoingReflection(inout Ray ray, HitRecord record, out vec3 rayTint)
     ray.dir = woWorld;
 }
 
+uniform uint displayDebug;
+
 uniform int maxBounces;
 vec3 trace(Ray cameraRay) {
     Ray ray = cameraRay;
@@ -469,7 +471,8 @@ vec3 trace(Ray cameraRay) {
 
     for (uint bounce = 0; bounce <= maxBounces; bounce++) {
         HitRecord record = intersectScene(ray);
-//        return record.interpolatedNormal;
+        if (displayDebug > 0)
+            return record.interpolatedNormal;
 
         if (record.hit) {
             vec3 rayTint;
@@ -512,7 +515,6 @@ uniform int samples;
 uniform uint currentFrame;
 in vec2 uv;
 uniform sampler2D lastFrame;
-uniform uint displayDebug;
 uniform float debugMaxTriangleIntersections;
 uniform float debugMaxAABBIntersections;
 

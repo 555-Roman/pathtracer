@@ -165,20 +165,15 @@ GLuint64 getTextureHandle(aiTextureType textureType, aiMaterial* mat, const char
         aiString str;
         mat->GetTexture(textureType, 0, &str);
         std::filesystem::path path(std::string(str.C_Str()));
-        std::cout << "filepath: " << path << std::endl;
         if (path.is_relative()) {
-            std::cout << "relative" << std::endl;
             std::string directoryPath = filePath;
-            std::cout << "1. " << directoryPath << std::endl;
             directoryPath = directoryPath.substr(0, directoryPath.find_last_of('/')+1);
             if (directoryPath.empty()) {
                 directoryPath = filePath;
                 directoryPath = directoryPath.substr(0, directoryPath.find_last_of('\\')+1);
             }
-            std::cout << "2. " << directoryPath << std::endl;
             textureHandle = getTexture((directoryPath + std::string(str.C_Str())).c_str());
         } else if (path.is_absolute()) {
-            std::cout << "absolute" << std::endl;
             textureHandle = getTexture(std::string(str.C_Str()).c_str());
         } else {
             std::cout << "Invalid texture path: " << path << std::endl;
