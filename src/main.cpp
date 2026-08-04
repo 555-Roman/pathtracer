@@ -192,7 +192,9 @@ int main() {
     float debugMaxAABBIntersections = 340.0;
     bool accumulate = false;
 
-    float test = 0.0;
+    int selectedModelIndex = -1;
+    vec3 selectedModelOffset = vec3(0.0);
+    float selectedModelScale = 1.0f;
 
     while (!glfwWindowShouldClose(window)) {
         currentTime = glfwGetTime();
@@ -272,7 +274,8 @@ int main() {
 
                 ImGui::DragFloat("Movement Speed", &MOVEMENT_SPEED, 0.1);
                 ImGui::DragFloat("Rotation Speed", &ROTATION_SPEED, 0.1);
-                ImGui::DragFloat3("Camera Position", (float*)&cameraPos, 0.1);
+                if (ImGui::DragFloat3("Camera Position", (float*)&cameraPos, 0.1))
+                    currentFrame = 0;
                 if (ImGui::DragFloat("Camera Yaw", &cameraYaw, 1.0 / 180.0 * 3.1415926)) {
                     mat4 tmp = mat4(1.0);
                     tmp = rotate(tmp, -cameraYaw, UP);
@@ -281,6 +284,7 @@ int main() {
                     cameraForward = cameraRotation * FORWARD;
                     cameraRight = cameraRotation * RIGHT;
                     cameraUp = cameraRotation * UP;
+                    currentFrame = 0;
                 }
                 if (ImGui::DragFloat("Camera Pitch", &cameraPitch, 1.0 / 180.0 * 3.1415926)) {
                     mat4 tmp = mat4(1.0);
@@ -290,11 +294,38 @@ int main() {
                     cameraForward = cameraRotation * FORWARD;
                     cameraRight = cameraRotation * RIGHT;
                     cameraUp = cameraRotation * UP;
+                    currentFrame = 0;
                 }
+
+                if (ImGui::DragFloat("Camera Horizontal FOV", &fov, 1.0, 1.0, 179.0))
+                    currentFrame = 0;
 
                 ImGui::NewLine();
 
                 ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
+            }
+            ImGui::End();
+
+            ImGui::Begin("Inspector");
+            {
+                if (ImGui::InputInt("Model Array Index", &selectedModelIndex)) {
+                    if (selectedModelIndex >= 0 && selectedModelIndex < models.size()) {
+                        selectedModelOffset = models[selectedModelIndex].offset;
+                        selectedModelScale = models[selectedModelIndex].scale;
+                    }
+                }
+                if (selectedModelIndex >= 0 && selectedModelIndex < models.size()) {
+                    if (ImGui::DragFloat3("Offset", (float*)&selectedModelOffset, 0.1)) {
+                        models[selectedModelIndex].offset = selectedModelOffset;
+                        sendModel(selectedModelIndex);
+                        currentFrame = 0;
+                    }
+                    if (ImGui::DragFloat("Scale", &selectedModelScale, 0.1)) {
+                        models[selectedModelIndex].scale = selectedModelScale;
+                        sendModel(selectedModelIndex);
+                        currentFrame = 0;
+                    }
+                }
             }
             ImGui::End();
 
@@ -310,6 +341,10 @@ int main() {
                 ImGui::DragFloat("Benchmark Steps", &BENCHMARK_STEPS, 1.0, 1.0, INFINITY);
                 ImGui::DragFloat("Benchmark Distance", &BENCHMARK_DISTANCE, 0.1);
                 ImGui::DragFloat3("Benchmark Center", (float*)&BENCHMARK_CENTER, 0.1);
+                if (ImGui::Button("Start Benchmark")) {
+                    benchmark = true;
+                    currentFrame = 0;
+                }
             }
             ImGui::End();
         }

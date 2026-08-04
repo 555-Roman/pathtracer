@@ -8,6 +8,7 @@
 
 #include "assimp/scene.h"
 #include "bvh.h"
+#include "model.h"
 
 void importAndSend(const char* filePath);
 void import(const char* filePath);

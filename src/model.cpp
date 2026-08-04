@@ -20,3 +20,16 @@ void instantiate(Model model, Material material) {
 void instantiate(Model model) {
     instantiate(model, vec3(0.0), 1.0, {vec3(1.0), 0.0, vec3(0.0), 0.0, 0, 0});
 }
+
+
+void sendModels() {
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, model_ssbo);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, models.size() * sizeof(Model), models.data(), GL_DYNAMIC_COPY);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+}
+
+void sendModel(uint modelIndex) {
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, model_ssbo);
+    glBufferSubData(GL_SHADER_STORAGE_BUFFER, modelIndex * sizeof(Model), sizeof(Model), &models[modelIndex]);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+}
