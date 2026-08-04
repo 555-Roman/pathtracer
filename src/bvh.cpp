@@ -13,6 +13,24 @@ void buildBVH(uint triangleIndex, uint triangleCount) {
 
     // subdivide recursively
     subdivide(rootNodeIdx);
+
+
+    double cost = 0.0;
+    vec3 e = bvhNodes[rootNodeIdx].maxBound - bvhNodes[rootNodeIdx].minBound;
+    float halfArea = e.x * e.y + e.y * e.z + e.z * e.x;
+    double invRootArea = 1.0 / halfArea;
+    for (int i = rootNodeIdx; i < bvhNodes.size(); i++) {
+        BVHNode node = bvhNodes[i];
+        e = node.maxBound - node.minBound;
+        halfArea = e.x * e.y + e.y * e.z + e.z * e.x;
+        float probHit = halfArea * invRootArea;
+        if (node.triangleCount > 0) {
+            cost += triCost * node.triangleCount * probHit;
+        } else {
+            cost += traverseCost * probHit;
+        }
+    }
+    std::cout << "SAH cost:   " << cost << std::endl;
 }
 
 void updateBounds(uint nodeIdx) {
@@ -144,8 +162,8 @@ float FindBestSplitPlane(BVHNode& node, int& axis, float& splitPos) {
 
             rightSum += bins[SAH_BINS - 1 - i].triangleCount;
             rightCount[SAH_BINS - 2 - i] = rightSum;
-            rightBox.minBound = min(rightBox.minBound, bins[SAH_BINS - 2 - i].minBound);
-            rightBox.maxBound = max(rightBox.maxBound, bins[SAH_BINS - 2 - i].maxBound);
+            rightBox.minBound = min(rightBox.minBound, bins[SAH_BINS - 1 - i].minBound);
+            rightBox.maxBound = max(rightBox.maxBound, bins[SAH_BINS - 1 - i].maxBound);
             e = rightBox.maxBound - rightBox.minBound;
             rightArea[SAH_BINS - 2 - i] = e.x * e.y + e.y * e.z + e.z * e.x;
         }
@@ -196,14 +214,20 @@ void subdivide(uint nodeIdx, uint depth) {
     float splitPos;
     float splitCost = FindBestSplitPlane(node, axis, splitPos);
 
-    float nosplitCost = CalculateNodeCost(node);
+    vec3 e = node.maxBound - node.minBound;
+    float halfArea = e.x * e.y + e.y * e.z + e.z * e.x;
+    splitCost = traverseCost + (triCost * splitCost / halfArea);
+    float nosplitCost = triCost * node.triangleCount;
     if (splitCost >= nosplitCost) return;
 #elif BVH_SPLIT_METHOD == 3
     int axis;
     float splitPos;
     float splitCost = FindBestSplitPlane(node, axis, splitPos);
 
-    float nosplitCost = CalculateNodeCost(node);
+    vec3 e = node.maxBound - node.minBound;
+    float halfArea = e.x * e.y + e.y * e.z + e.z * e.x;
+    splitCost = traverseCost + (triCost * splitCost / halfArea);
+    float nosplitCost = triCost * node.triangleCount;
     if (splitCost >= nosplitCost) return;
 #else
     return;

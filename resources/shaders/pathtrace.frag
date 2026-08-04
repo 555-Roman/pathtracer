@@ -253,7 +253,6 @@ uniform uint skyboxFormat;
 uniform samplerCube skyboxCubemapTexture;
 uniform sampler2D skyboxEquirectangularTexture;
 vec3 getSkybox(Ray ray) {
-    return vec3(1.0);
     if (skyboxFormat == 0) {
         float a = 0.5*(ray.dir.y + 1.0);
         return mix(vec3(1.0, 1.0, 1.0), vec3(0.5, 0.7, 1.0), a);
@@ -462,7 +461,7 @@ void sampleOutgoingReflection(inout Ray ray, HitRecord record, out vec3 rayTint)
     ray.dir = woWorld;
 }
 
-uniform uint maxBounces;
+uniform int maxBounces;
 vec3 trace(Ray cameraRay) {
     Ray ray = cameraRay;
     vec3 incomingLight = vec3(0.0);
@@ -470,6 +469,7 @@ vec3 trace(Ray cameraRay) {
 
     for (uint bounce = 0; bounce <= maxBounces; bounce++) {
         HitRecord record = intersectScene(ray);
+//        return record.interpolatedNormal;
 
         if (record.hit) {
             vec3 rayTint;
@@ -487,13 +487,34 @@ vec3 trace(Ray cameraRay) {
     return incomingLight;
 }
 
+vec4 turbo_color_map(float x) {
+    // Source:
+    // https://research.google/blog/turbo-an-improved-rainbow-colormap-for-visualization/
+
+    vec4 kRedVec4 = vec4(0.13572138, 4.61539260, -42.66032258, 132.13108234);
+    vec4 kGreenVec4 = vec4(0.09140261, 2.19418839, 4.84296658, -14.18503333);
+    vec4 kBlueVec4 = vec4(0.10667330, 12.64194608, -60.58204836, 110.36276771);
+    vec2 kRedVec2   = vec2(-152.94239396, 59.28637943);
+    vec2 kGreenVec2 = vec2(4.27729857, 2.82956604);
+    vec2 kBlueVec2  = vec2(-89.90310912, 27.34824973);
+
+    x             = clamp(x, 0, 1);
+    vec4 v4 = vec4(1.0, x, x * x, x * x * x);
+    vec2 v2 = vec2(v4.z, v4.w) * v4.z;
+    return vec4(dot(v4, kRedVec4) + dot(v2, kRedVec2),
+        dot(v4, kGreenVec4) + dot(v2, kGreenVec2),
+        dot(v4, kBlueVec4) + dot(v2, kBlueVec2), 1);
+}
+
 uniform uvec2 halfScreenSize;
 uniform vec3 cameraPos;
-uniform uint samples;
+uniform int samples;
 uniform uint currentFrame;
 in vec2 uv;
 uniform sampler2D lastFrame;
 uniform uint displayDebug;
+uniform float debugMaxTriangleIntersections;
+uniform float debugMaxAABBIntersections;
 
 void main() {
     uvec2 FragCoord = uvec2(gl_FragCoord.xy * halfScreenSize) * 2;
@@ -512,7 +533,8 @@ void main() {
     FragColor = vec4(mix(accumulatedColour, rayColour, weight), 1.0);
 
     if (displayDebug > 0) {
-        FragColor = vec4(debugColour / vec3(10.0, 1.0 / 0.0, 100.0), 1.0);
-        if (max(FragColor.r, FragColor.b) > 1.0) FragColor = vec4(1.0);
+        FragColor = turbo_color_map(debugColour.r / debugMaxTriangleIntersections + debugColour.b / debugMaxAABBIntersections);
+//        FragColor = vec4(debugColour.r / debugMaxTriangleIntersections, 0.0, debugColour.b / debugMaxAABBIntersections, 1.0);
+//        if (max(FragColor.r, FragColor.b) > 1.0) FragColor = vec4(1.0);
     }
 }

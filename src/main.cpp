@@ -21,41 +21,112 @@
 int WINDOW_WIDTH = 640;
 int WINDOW_HEIGHT = 480;
 
+int VIEWPORT_WIDTH = WINDOW_WIDTH;
+int VIEWPORT_HEIGHT = WINDOW_HEIGHT;
+
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
+void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
 void processInput(GLFWwindow *window, float dt);
 
 Shader pathtraceProgram;
 Shader displayProgram;
 GLuint textures[2];
+GLuint displayTexture;
 
 #define RIGHT vec3(1.0, 0.0, 0.0)
 #define UP vec3(0.0, 1.0, 0.0)
 #define FORWARD vec3(0.0, 0.0, -1.0)
 float MOVEMENT_SPEED = 1.0;
 float ROTATION_SPEED = 1.0;
-vec3 cameraPos = vec3(0);
-float cameraPitch = 0.0166577;
-float cameraYaw = -1.42489;
-vec3 cameraRight = vec3(0.145389, 0, -0.989375);
-vec3 cameraUp = vec3(0.0164799, 0.999861, 0.00242173);
-vec3 cameraForward = vec3(-0.989237, 0.0166569, -0.145369);
+vec3 cameraPos = vec3(0.743709, 7.07061, 0.806511);
+float cameraPitch = -0.470506;
+float cameraYaw = -1.20844;
+vec3 cameraRight = vec3(0.354479, 0, -0.935064);
+vec3 cameraUp = vec3(-0.423899, 0.891339, -0.160698);
+vec3 cameraForward = vec3(-0.833459, -0.453337, -0.315961);
 mat3 cameraRotation = mat3(cameraRight, cameraUp, -cameraForward);
 // float fov = 39.5978;
 float fov = 90.0;
 
-uint maxBounces = 5;
-uint samples = 1;
+int maxBounces = 5;
+int samples = 1;
 uint currentFrame = 0;
 
+bool fullscreenViewport = false;
+bool wantCaptureKeyboard = true;
+bool viewportFocused = false;
+
+// dragon: 1.0, 0.0
+// sponza 16.0, 7.0
 bool benchmark = false;
 float benchmarkStart = 0.0f;
 #define BENCHMARK_STEPS 3600.0f
-#define BENCHMARK_DISTANCE 16.0f
+#define BENCHMARK_DISTANCE 0.0f
 #define BENCHMARK_CENTER vec3(0.0, 7.0, 0.0)
 uint displayDebug = 0;
 
 // INSIDE center 35; dst 40
 // OUTSIDE center 33; dst 77
+
+/*
+Triangles: 66447
+
+SPLIT_METHOD 2
+  without:
+    SAH cost:   85.2881
+    buildBVH(): 1130ms
+    import():   1260ms
+    BVHNodes:   124577
+  with:
+    SAH cost:   81.0162
+    buildBVH(): 1110ms
+    import():   1234ms
+    BVHNodes:   63395
+
+SPLIT_METHOD 3
+  without:
+    SAH cost:   83.5954
+    buildBVH(): 155ms
+    import():   281ms
+    BVHNodes:   124645
+  with:
+    wrong indices:
+      SAH cost:   79.3448
+      buildBVH(): 153ms
+      import():   280ms
+      BVHNodes:   63991
+    right indices:
+      SAH cost:   81.0162
+      buildBVH(): 155ms
+      import():   281ms
+      BVHNodes:   63395
+
+100 bins:
+    SAH cost:   81.0162
+    buildBVH(): 155ms
+    import():   281ms
+    BVHNodes:   63395
+64 bins:
+    SAH cost:   77.0776
+    buildBVH(): 107ms
+    import():   236ms
+    BVHNodes:   63629
+32 bins:
+    SAH cost:   79.5824
+    buildBVH(): 68ms
+    import():   209ms
+    BVHNodes:   63851
+31 bins:
+    SAH cost:   76.8466
+    buildBVH(): 64ms
+    import():   187ms
+    BVHNodes:   63103
+16 bins:
+    SAH cost:   76.8152
+    buildBVH(): 46ms
+    import():   173ms
+    BVHNodes:   63931
+*/
 
 int main() {
     stbi_set_flip_vertically_on_load(true);
@@ -73,6 +144,7 @@ int main() {
     }
     glfwMakeContextCurrent(window);
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+    glfwSetKeyCallback(window, key_callback);
     glfwSwapInterval(0);
 
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
@@ -132,7 +204,6 @@ int main() {
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-
     // setSkyboxEquirectangular(RESOURCES_PATH "textures/rogland_clear_night_4k.png");
 
 
@@ -145,17 +216,34 @@ int main() {
     glGenBuffers(1, &model_ssbo);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, model_ssbo);
 
-    GLuint fbo;
-    glGenFramebuffers(1, &fbo);
+
+    GLuint pathtracingFbo;
+    glGenFramebuffers(1, &pathtracingFbo);
 
     glGenTextures(2, textures);
     for (GLuint texture : textures) {
         glBindTexture(GL_TEXTURE_2D, texture);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, WINDOW_WIDTH, WINDOW_HEIGHT, 0, GL_RGB, GL_FLOAT, nullptr);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, VIEWPORT_WIDTH, VIEWPORT_HEIGHT, 0, GL_RGBA, GL_FLOAT, nullptr);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     }
     glBindTexture(GL_TEXTURE_2D, 0);
+
+    GLuint displayFbo;
+    glGenFramebuffers(1, &displayFbo);
+
+    glGenTextures(1, &displayTexture);
+    glBindTexture(GL_TEXTURE_2D, displayTexture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, VIEWPORT_WIDTH, VIEWPORT_HEIGHT, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, displayFbo);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, displayTexture, 0);
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << std::endl;
+
 
     double currentTime = glfwGetTime();
     double lastTime = currentTime;
@@ -165,6 +253,9 @@ int main() {
     glGenQueries(1, &query);
 
     std::string importFilePath;
+    float debugMaxTriangleIntersections = 34.0;
+    float debugMaxAABBIntersections = 340.0;
+    bool accumulate = false;
 
     while (!glfwWindowShouldClose(window)) {
         currentTime = glfwGetTime();
@@ -173,24 +264,85 @@ int main() {
 
 
         glfwPollEvents();
+        if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS && viewportFocused)
+            glfwSetWindowShouldClose(window, true);
 
 
-        // Start the Dear ImGui frame
-        ImGui_ImplOpenGL3_NewFrame();
-        ImGui_ImplGlfw_NewFrame();
-        ImGui::NewFrame();
+        if (!fullscreenViewport) {
+            // Start the Dear ImGui frame
+            ImGui_ImplOpenGL3_NewFrame();
+            ImGui_ImplGlfw_NewFrame();
+            ImGui::NewFrame();
 
-        ImGui::Begin("test");
+            ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
 
-        ImGui::InputText("Import file path: ", &importFilePath);
-        ImGui::SameLine();
-        if (ImGui::Button("Import")) {
-            importAndSend(importFilePath.c_str());
+
+            ImGui::Begin("viewport");
+            {
+                // Using a Child allow to fill all the space of the window.
+                // It also alows customization
+                ImGui::BeginChild("GameRender");
+
+                viewportFocused = ImGui::IsWindowFocused();
+                wantCaptureKeyboard = io.WantCaptureKeyboard;
+
+                // Get the size of the child (i.e. the whole draw size of the windows).
+                ImVec2 wsize = ImGui::GetWindowSize();
+                if ((int)wsize.x != VIEWPORT_WIDTH || (int)wsize.y != VIEWPORT_HEIGHT) {
+                    VIEWPORT_WIDTH  = std::max(1, (int)wsize.x);
+                    VIEWPORT_HEIGHT = std::max(1, (int)wsize.y);
+
+                    // Reallocate all FBO attachments
+                    for (GLuint texture : textures) {
+                        glBindTexture(GL_TEXTURE_2D, texture);
+                        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, VIEWPORT_WIDTH, VIEWPORT_HEIGHT, 0, GL_RGBA, GL_FLOAT, nullptr);
+                    }
+
+                    glBindTexture(GL_TEXTURE_2D, displayTexture);
+                    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, VIEWPORT_WIDTH, VIEWPORT_HEIGHT, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+
+                    glBindTexture(GL_TEXTURE_2D, 0);
+
+                    // recreate your framebuffer textures here
+                    currentFrame = 0;
+                }
+                // Because I use the texture from OpenGL, I need to invert the V from the UV.
+                ImGui::Image((ImTextureID)displayTexture, wsize, ImVec2(0, 1), ImVec2(1, 0));
+                ImGui::EndChild();
+            }
+            ImGui::End();
+
+            ImGui::Begin("test");
+            {
+                ImGui::InputText("Import file path", &importFilePath);
+                ImGui::SameLine();
+                if (ImGui::Button("Import")) {
+                    importAndSend(importFilePath.c_str());
+                    currentFrame = 0;
+                }
+
+                ImGui::NewLine();
+
+                if (ImGui::SliderInt("Max Bounces", &maxBounces, 0, 12))
+                    currentFrame = 0;
+                ImGui::SliderInt("Samples per Frame", &samples, 1, 20);
+                if (ImGui::Button("Reset Accumulation"))
+                    currentFrame = 0;
+                ImGui::SameLine();
+                ImGui::Checkbox("Accumulate", &accumulate);
+
+                ImGui::NewLine();
+
+                ImGui::SliderFloat("Debug Max Triangle Intersections", &debugMaxTriangleIntersections, 1.0, 10000.0);
+                ImGui::SliderFloat("Debug Max AABB Intersections", &debugMaxAABBIntersections, 1.0, 50000.0);
+
+                ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
+            }
+            ImGui::End();
         }
 
-        ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
-
-        ImGui::End();
+        if (!accumulate)
+            currentFrame = 0;
 
 
         if (benchmark) {
@@ -201,22 +353,23 @@ int main() {
             }
 
             float x, z;
-            x = BENCHMARK_DISTANCE * sin(float(currentFrame) / BENCHMARK_STEPS * 2.0f * 3.1415926f);
-            z = BENCHMARK_DISTANCE * cos(float(currentFrame) / BENCHMARK_STEPS * 2.0f * 3.1415926f);
+            x = sin(float(currentFrame) / BENCHMARK_STEPS * 2.0f * 3.1415926f);
+            z = cos(float(currentFrame) / BENCHMARK_STEPS * 2.0f * 3.1415926f);
 
-            cameraPos = vec3(x, 0.0, z) + BENCHMARK_CENTER;
-            cameraForward = normalize(BENCHMARK_CENTER - cameraPos);
+            cameraForward = -vec3(x, 0.0, z);
+            cameraPos = -cameraForward * BENCHMARK_DISTANCE + BENCHMARK_CENTER;
             cameraRight = normalize(cross(cameraForward, vec3(0.0, 1.0, 0.0)));
             cameraUp = normalize(cross(cameraRight, cameraForward));
             cameraRotation = mat3(cameraRight, cameraUp, -cameraForward);
 
             glBeginQuery(GL_TIME_ELAPSED, query);
         } else {
-            if (!io.WantCaptureKeyboard)
+            if (!wantCaptureKeyboard || viewportFocused)
                 processInput(window, deltaTime);
         }
 
-        glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+        glBindFramebuffer(GL_FRAMEBUFFER, pathtracingFbo);
+        glViewport(0, 0, VIEWPORT_WIDTH, VIEWPORT_HEIGHT);
 
         GLuint currentFrameTexture = textures[currentFrame % 2];
         GLuint lastFrameTexture = textures[1 - (currentFrame % 2)];
@@ -232,19 +385,21 @@ int main() {
         pathtraceProgram.setUniform3f("cameraPos", cameraPos.x, cameraPos.y, cameraPos.z);
         pathtraceProgram.setUniformMatrix3fv("cameraRotation", 1, value_ptr(cameraRotation));
 
-        pathtraceProgram.setUniform2ui("halfScreenSize", WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2);
+        pathtraceProgram.setUniform2ui("halfScreenSize", VIEWPORT_WIDTH / 2, VIEWPORT_HEIGHT / 2);
         pathtraceProgram.setUniform1f("fov", fov);
 
         pathtraceProgram.setUniform1ui("modelCount", models.size());
 
-        pathtraceProgram.setUniform1ui("maxBounces", maxBounces);
-        pathtraceProgram.setUniform1ui("samples", samples);
+        pathtraceProgram.setUniform1i("maxBounces", maxBounces);
+        pathtraceProgram.setUniform1i("samples", samples);
 
         pathtraceProgram.setUniformHandleui64ARB("skyboxCubemapTexture", skyboxCubemapTexture);
         pathtraceProgram.setUniformHandleui64ARB("skyboxEquirectangularTexture", skyboxEquirectangularTexture);
         pathtraceProgram.setUniform1ui("skyboxFormat", skyboxFormat);
 
         pathtraceProgram.setUniform1ui("displayDebug", displayDebug);
+        pathtraceProgram.setUniform1f("debugMaxTriangleIntersections", debugMaxTriangleIntersections);
+        pathtraceProgram.setUniform1f("debugMaxAABBIntersections", debugMaxAABBIntersections);
 
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, lastFrameTexture);
@@ -263,7 +418,10 @@ int main() {
         }
 
 
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        if (fullscreenViewport)
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        else
+            glBindFramebuffer(GL_FRAMEBUFFER, displayFbo);
 
         displayProgram.use();
 
@@ -274,20 +432,29 @@ int main() {
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
 
-        // Rendering
-        ImGui::Render();
-        int display_w, display_h;
-        glfwGetFramebufferSize(window, &display_w, &display_h);
-        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+        if (!fullscreenViewport) {
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
 
-        // Update and Render additional Platform Windows
-        // (Platform functions may change the current OpenGL context, so we save/restore it to make it easier to paste this code elsewhere.
-        //  For this specific demo app we could also call glfwMakeContextCurrent(window) directly)
-        if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
-            GLFWwindow* backup_current_context = glfwGetCurrentContext();
-            ImGui::UpdatePlatformWindows();
-            ImGui::RenderPlatformWindowsDefault();
-            glfwMakeContextCurrent(backup_current_context);
+            glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+            glClear(GL_COLOR_BUFFER_BIT);
+
+
+            // Rendering
+            ImGui::Render();
+            int display_w, display_h;
+            glfwGetFramebufferSize(window, &display_w, &display_h);
+            ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+            // Update and Render additional Platform Windows
+            // (Platform functions may change the current OpenGL context, so we save/restore it to make it easier to paste this code elsewhere.
+            //  For this specific demo app we could also call glfwMakeContextCurrent(window) directly)
+            if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
+                GLFWwindow* backup_current_context = glfwGetCurrentContext();
+                ImGui::UpdatePlatformWindows();
+                ImGui::RenderPlatformWindowsDefault();
+                glfwMakeContextCurrent(backup_current_context);
+            }
         }
 
 
@@ -310,22 +477,21 @@ int main() {
 }
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
-    glViewport(0, 0, width, height);
     WINDOW_WIDTH = width;
     WINDOW_HEIGHT = height;
+    if (fullscreenViewport) {
+        VIEWPORT_WIDTH = WINDOW_WIDTH;
+        VIEWPORT_HEIGHT = WINDOW_HEIGHT;
+    }
     for (GLuint texture : textures) {
         glBindTexture(GL_TEXTURE_2D, texture);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, WINDOW_WIDTH, WINDOW_HEIGHT, 0, GL_RGB, GL_FLOAT, nullptr);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, VIEWPORT_WIDTH, VIEWPORT_HEIGHT, 0, GL_RGBA, GL_FLOAT, nullptr);
     }
     currentFrame = 0;
 }
 
 
 void processInput(GLFWwindow *window, float dt) {
-    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
-        glfwSetWindowShouldClose(window, true);
-    }
-
     bool moved = false;
     bool rotated = false;
 
@@ -391,9 +557,26 @@ void processInput(GLFWwindow *window, float dt) {
         benchmarkStart = glfwGetTime();
         currentFrame = 0;
     }
+}
+
+void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+    if (wantCaptureKeyboard && !viewportFocused) return;
 
     if (glfwGetKey(window, GLFW_KEY_N) == GLFW_PRESS) {
         displayDebug = !displayDebug;
+        currentFrame = 0;
+    }
+
+    if (key == GLFW_KEY_F && action == GLFW_PRESS) {
+        fullscreenViewport = !fullscreenViewport;
+        if (fullscreenViewport) {
+            VIEWPORT_WIDTH = WINDOW_WIDTH;
+            VIEWPORT_HEIGHT = WINDOW_HEIGHT;
+            for (GLuint texture : textures) {
+                glBindTexture(GL_TEXTURE_2D, texture);
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, VIEWPORT_WIDTH, VIEWPORT_HEIGHT, 0, GL_RGBA, GL_FLOAT, nullptr);
+            }
+        }
         currentFrame = 0;
     }
 }

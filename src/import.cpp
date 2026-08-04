@@ -39,14 +39,8 @@ void import(const char* filePath) {
 
     auto end = std::chrono::high_resolution_clock::now();
 
-    auto us = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
     auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-    auto s = std::chrono::duration_cast<std::chrono::seconds>(end - start).count();
-    std::cout << "import(\"" << filePath << "\") timings: " << std::endl;
-    std::cout << "  " << us << "us" << std::endl;
-    std::cout << "  " << ms << "ms" << std::endl;
-    std::cout << "  " <<  s <<  "s" << std::endl;
-    std::cout << std::endl;
+    std::cout << "import():   " << ms << "ms" << std::endl;
 }
 
 void processNode(aiNode* node, const aiScene* scene, const char* filePath) {
@@ -106,14 +100,8 @@ void processMesh(aiMesh* mesh, const aiScene* scene, const char* filePath) {
 
     auto end = std::chrono::high_resolution_clock::now();
 
-    auto us = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
     auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-    auto s = std::chrono::duration_cast<std::chrono::seconds>(end - start).count();
-    std::cout << "buildBVH() timings: " << std::endl;
-    std::cout << "  " << us << "us" << std::endl;
-    std::cout << "  " << ms << "ms" << std::endl;
-    std::cout << "  " <<  s <<  "s" << std::endl;
-    std::cout << std::endl;
+    std::cout << "buildBVH(): " << ms << "ms" << std::endl;
 
     Material material = getMeshMaterial(mesh, scene, filePath);
     models.push_back(Model{bvhNodeIndex, {0, 0, 0}, vec3(0.0), 1.0, material});
@@ -177,11 +165,20 @@ GLuint64 getTextureHandle(aiTextureType textureType, aiMaterial* mat, const char
         aiString str;
         mat->GetTexture(textureType, 0, &str);
         std::filesystem::path path(std::string(str.C_Str()));
+        std::cout << "filepath: " << path << std::endl;
         if (path.is_relative()) {
+            std::cout << "relative" << std::endl;
             std::string directoryPath = filePath;
+            std::cout << "1. " << directoryPath << std::endl;
             directoryPath = directoryPath.substr(0, directoryPath.find_last_of('/')+1);
+            if (directoryPath.empty()) {
+                directoryPath = filePath;
+                directoryPath = directoryPath.substr(0, directoryPath.find_last_of('\\')+1);
+            }
+            std::cout << "2. " << directoryPath << std::endl;
             textureHandle = getTexture((directoryPath + std::string(str.C_Str())).c_str());
         } else if (path.is_absolute()) {
+            std::cout << "absolute" << std::endl;
             textureHandle = getTexture(std::string(str.C_Str()).c_str());
         } else {
             std::cout << "Invalid texture path: " << path << std::endl;

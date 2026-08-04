@@ -67,9 +67,9 @@ inline std::vector<Model> models;
 inline GLuint model_ssbo;
 
 inline GLuint64 getTexture(const char* filePath) {
-    unsigned int cubeTexture;
-    glGenTextures(1, &cubeTexture);
-    glBindTexture(GL_TEXTURE_2D, cubeTexture);
+    unsigned int texture;
+    glGenTextures(1, &texture);
+    glBindTexture(GL_TEXTURE_2D, texture);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     int width, height, nrChannels;
@@ -85,15 +85,15 @@ inline GLuint64 getTexture(const char* filePath) {
 
         glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
     } else {
-        std::cout << "Failed to load texture" << std::endl;
+        std::cout << "Failed to load texture: " << filePath << std::endl;
     }
     stbi_image_free(data);
     glBindTexture(GL_TEXTURE_2D, 0);
 
-    GLuint64 cubeTextureHandle = glGetTextureHandleARB(cubeTexture);
-    glMakeTextureHandleResidentARB(cubeTextureHandle);
+    GLuint64 textureHandle = glGetTextureHandleARB(texture);
+    glMakeTextureHandleResidentARB(textureHandle);
 
-    return cubeTextureHandle;
+    return textureHandle;
 }
 
 #endif //PATHTRACER_INCLUDE_H

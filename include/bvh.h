@@ -10,6 +10,9 @@
 
 #define BVH_SPLIT_METHOD 3
 
+inline constexpr float triCost = 1.1;
+inline constexpr float traverseCost = 1.0;
+
 void buildBVH(uint triangleIndex, uint triangleCount);
 void updateBounds(uint nodeIdx);
 float EvaluateSAH(uint nodeIdx, int axis, float pos);
