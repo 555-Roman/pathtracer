@@ -56,11 +56,16 @@ bool fullscreenViewport = false;
 bool wantCaptureKeyboard = true;
 bool viewportFocused = false;
 
-bool benchmark = false;
+bool rotationBenchmark = false;
 float benchmarkStart = 0.0f;
-float BENCHMARK_STEPS = 3600.0f;
+int BENCHMARK_STEPS = 3600;
 float BENCHMARK_DISTANCE = 0.0f;
-vec3 BENCHMARK_CENTER = vec3(0.0, 7.0, 0.0);
+vec3 BENCHMARK_CENTER = vec3(0.0);
+bool staticBenchmark = false;
+int BENCHMARK_FRAMES = 100;
+float BENCHMARK_YAW = 0.0;
+float BENCHMARK_PITCH = 0.0;
+vec3 BENCHMARK_POSITION = vec3(0.0);
 bool displayDebug = false;
 
 int main() {
@@ -207,7 +212,7 @@ int main() {
             glfwSetWindowShouldClose(window, true);
 
 
-        if (!fullscreenViewport) {
+        if (!fullscreenViewport && !rotationBenchmark && !staticBenchmark) {
             // Start the Dear ImGui frame
             ImGui_ImplOpenGL3_NewFrame();
             ImGui_ImplGlfw_NewFrame();
@@ -272,6 +277,13 @@ int main() {
 
                 ImGui::NewLine();
 
+                ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
+            }
+            ImGui::End();
+
+            ImGui::Begin("Camera");
+            {
+
                 ImGui::DragFloat("Movement Speed", &MOVEMENT_SPEED, 0.1);
                 ImGui::DragFloat("Rotation Speed", &ROTATION_SPEED, 0.1);
                 if (ImGui::DragFloat3("Camera Position", (float*)&cameraPos, 0.1))
@@ -299,10 +311,6 @@ int main() {
 
                 if (ImGui::DragFloat("Camera Horizontal FOV", &fov, 1.0, 1.0, 179.0))
                     currentFrame = 0;
-
-                ImGui::NewLine();
-
-                ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
             }
             ImGui::End();
 
@@ -338,24 +346,45 @@ int main() {
 
                 ImGui::NewLine();
 
-                ImGui::DragFloat("Benchmark Steps", &BENCHMARK_STEPS, 1.0, 1.0, INFINITY);
+                ImGui::Text("Rotation Benchmark");
                 ImGui::DragFloat("Benchmark Distance", &BENCHMARK_DISTANCE, 0.1);
                 ImGui::DragFloat3("Benchmark Center", (float*)&BENCHMARK_CENTER, 0.1);
-                if (ImGui::Button("Start Benchmark")) {
-                    benchmark = true;
+                ImGui::DragInt("Benchmark Steps", &BENCHMARK_STEPS, 1, 1, INT_MAX);
+                if (ImGui::Button("Start Rotation Benchmark") && !rotationBenchmark && !staticBenchmark) {
+                    rotationBenchmark = true;
+                    currentFrame = 0;
+                }
+
+                ImGui::NewLine();
+
+                ImGui::Text("Static Benchmark");
+                ImGui::DragFloat("Benchmark Yaw", &BENCHMARK_YAW, 1.0 / 180.0 * 3.1415926);
+                ImGui::DragFloat("Benchmark Pitch", &BENCHMARK_PITCH, 1.0 / 180.0 * 3.1415926);
+                ImGui::DragFloat3("Benchmark Position", (float*)&BENCHMARK_POSITION, 0.1);
+                ImGui::DragInt("Benchmark Frames", &BENCHMARK_FRAMES, 1, 1, INT_MAX);
+                if (ImGui::Button("Start Static Benchmark") && !staticBenchmark && !rotationBenchmark) {
+                    staticBenchmark = true;
+                    cameraPos = BENCHMARK_POSITION;
+                    mat4 tmp = mat4(1.0);
+                    tmp = rotate(tmp, -BENCHMARK_YAW, UP);
+                    tmp = rotate(tmp, BENCHMARK_PITCH, RIGHT);
+                    cameraRotation = mat3(tmp);
+                    cameraForward = cameraRotation * FORWARD;
+                    cameraRight = cameraRotation * RIGHT;
+                    cameraUp = cameraRotation * UP;
                     currentFrame = 0;
                 }
             }
             ImGui::End();
         }
 
-        if (!accumulate)
+        if (!accumulate && !rotationBenchmark && !staticBenchmark) {
             currentFrame = 0;
+        }
 
-
-        if (benchmark) {
-            if (float(currentFrame) / BENCHMARK_STEPS >= 1.0) {
-                benchmark = false;
+        if (rotationBenchmark) {
+            if (currentFrame >= BENCHMARK_STEPS) {
+                rotationBenchmark = false;
                 currentFrame = 0;
                 continue;
             }
@@ -369,6 +398,14 @@ int main() {
             cameraRight = normalize(cross(cameraForward, vec3(0.0, 1.0, 0.0)));
             cameraUp = normalize(cross(cameraRight, cameraForward));
             cameraRotation = mat3(cameraRight, cameraUp, -cameraForward);
+
+            glBeginQuery(GL_TIME_ELAPSED, query);
+        } else if (staticBenchmark) {
+            if (currentFrame >= BENCHMARK_FRAMES) {
+                staticBenchmark = false;
+                currentFrame = 0;
+                continue;
+            }
 
             glBeginQuery(GL_TIME_ELAPSED, query);
         } else {
@@ -416,13 +453,16 @@ int main() {
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
 
-        if (benchmark) {
+        if (rotationBenchmark || staticBenchmark) {
             glEndQuery(GL_TIME_ELAPSED);
 
             GLuint64 ns;
             glGetQueryObjectui64v(query, GL_QUERY_RESULT, &ns);
 
-            std::cout << float(currentFrame) / BENCHMARK_STEPS * 360.0f << ": " << ns / 1e6 << "  " << 1000.0 / (ns / 1e6) << std::endl;
+            if (rotationBenchmark)
+                std::cout << float(currentFrame) / BENCHMARK_STEPS * 360.0f << ": " << ns / 1e6 << "  " << 1000.0 / (ns / 1e6) << std::endl;
+            else
+                std::cout << currentFrame << ": " << ns / 1e6 << "  " << 1000.0 / (ns / 1e6) << std::endl;
         }
 
 
@@ -561,7 +601,7 @@ void processInput(GLFWwindow *window, float dt) {
     }
 
     if (glfwGetKey(window, GLFW_KEY_B) == GLFW_PRESS) {
-        benchmark = true;
+        rotationBenchmark = true;
         benchmarkStart = glfwGetTime();
         currentFrame = 0;
     }
