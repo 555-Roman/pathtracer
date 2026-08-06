@@ -61,11 +61,20 @@ float benchmarkStart = 0.0f;
 int BENCHMARK_STEPS = 3600;
 float BENCHMARK_DISTANCE = 0.0f;
 vec3 BENCHMARK_CENTER = vec3(0.0);
+
 bool staticBenchmark = false;
 int BENCHMARK_FRAMES = 100;
 float BENCHMARK_YAW = 0.0;
 float BENCHMARK_PITCH = 0.0;
 vec3 BENCHMARK_POSITION = vec3(0.0);
+
+bool multiplePovBenchmark = false;
+std::vector<int> POV_BENCHMARK_FRAMES;
+std::vector<float> POV_BENCHMARK_YAWS;
+std::vector<float> POV_BENCHMARK_PITCHES;
+std::vector<vec3> POV_BENCHMARK_POSITIONS;
+int POV_BENCHMARK_CURRENT_POV = -1;
+
 bool displayDebug = false;
 
 int main() {
@@ -198,8 +207,10 @@ int main() {
     bool accumulate = false;
 
     int selectedModelIndex = -1;
-    vec3 selectedModelOffset = vec3(0.0);
-    float selectedModelScale = 1.0f;
+
+    int selectedBenchmarkPov = -1;
+    std::vector<int> povBenchmarkAccumulatedFrames;
+    bool fullscreenBenchmarks = false;
 
     while (!glfwWindowShouldClose(window)) {
         currentTime = glfwGetTime();
@@ -212,7 +223,7 @@ int main() {
             glfwSetWindowShouldClose(window, true);
 
 
-        if (!fullscreenViewport && !rotationBenchmark && !staticBenchmark) {
+        if (!fullscreenViewport && !rotationBenchmark && !staticBenchmark && !multiplePovBenchmark) {
             // Start the Dear ImGui frame
             ImGui_ImplOpenGL3_NewFrame();
             ImGui_ImplGlfw_NewFrame();
@@ -316,20 +327,13 @@ int main() {
 
             ImGui::Begin("Inspector");
             {
-                if (ImGui::InputInt("Model Array Index", &selectedModelIndex)) {
-                    if (selectedModelIndex >= 0 && selectedModelIndex < models.size()) {
-                        selectedModelOffset = models[selectedModelIndex].offset;
-                        selectedModelScale = models[selectedModelIndex].scale;
-                    }
-                }
+                ImGui::InputInt("Model Array Index", &selectedModelIndex);
                 if (selectedModelIndex >= 0 && selectedModelIndex < models.size()) {
-                    if (ImGui::DragFloat3("Offset", (float*)&selectedModelOffset, 0.1)) {
-                        models[selectedModelIndex].offset = selectedModelOffset;
+                    if (ImGui::DragFloat3("Offset", (float*)&models[selectedModelIndex].offset, 0.1)) {
                         sendModel(selectedModelIndex);
                         currentFrame = 0;
                     }
-                    if (ImGui::DragFloat("Scale", &selectedModelScale, 0.1)) {
-                        models[selectedModelIndex].scale = selectedModelScale;
+                    if (ImGui::DragFloat("Scale", &models[selectedModelIndex].scale, 0.1)) {
                         sendModel(selectedModelIndex);
                         currentFrame = 0;
                     }
@@ -346,13 +350,27 @@ int main() {
 
                 ImGui::NewLine();
 
+                ImGui::Checkbox("Fullscreen Benchmarks", &fullscreenBenchmarks);
+
+                ImGui::NewLine();
+
                 ImGui::Text("Rotation Benchmark");
                 ImGui::DragFloat("Benchmark Distance", &BENCHMARK_DISTANCE, 0.1);
                 ImGui::DragFloat3("Benchmark Center", (float*)&BENCHMARK_CENTER, 0.1);
                 ImGui::DragInt("Benchmark Steps", &BENCHMARK_STEPS, 1, 1, INT_MAX);
-                if (ImGui::Button("Start Rotation Benchmark") && !rotationBenchmark && !staticBenchmark) {
+                if (ImGui::Button("Start Rotation Benchmark") && !rotationBenchmark && !staticBenchmark && !multiplePovBenchmark) {
                     rotationBenchmark = true;
                     currentFrame = 0;
+
+                    if (fullscreenBenchmarks) {
+                        fullscreenViewport = true;
+                        VIEWPORT_WIDTH = WINDOW_WIDTH;
+                        VIEWPORT_HEIGHT = WINDOW_HEIGHT;
+                        for (GLuint texture : textures) {
+                            glBindTexture(GL_TEXTURE_2D, texture);
+                            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, VIEWPORT_WIDTH, VIEWPORT_HEIGHT, 0, GL_RGBA, GL_FLOAT, nullptr);
+                        }
+                    }
                 }
 
                 ImGui::NewLine();
@@ -362,9 +380,11 @@ int main() {
                 ImGui::DragFloat("Benchmark Pitch", &BENCHMARK_PITCH, 1.0 / 180.0 * 3.1415926);
                 ImGui::DragFloat3("Benchmark Position", (float*)&BENCHMARK_POSITION, 0.1);
                 ImGui::DragInt("Benchmark Frames", &BENCHMARK_FRAMES, 1, 1, INT_MAX);
-                if (ImGui::Button("Start Static Benchmark") && !staticBenchmark && !rotationBenchmark) {
+                if (ImGui::Button("Start Static Benchmark") && !rotationBenchmark && !staticBenchmark && !multiplePovBenchmark) {
                     staticBenchmark = true;
+
                     cameraPos = BENCHMARK_POSITION;
+
                     mat4 tmp = mat4(1.0);
                     tmp = rotate(tmp, -BENCHMARK_YAW, UP);
                     tmp = rotate(tmp, BENCHMARK_PITCH, RIGHT);
@@ -373,12 +393,66 @@ int main() {
                     cameraRight = cameraRotation * RIGHT;
                     cameraUp = cameraRotation * UP;
                     currentFrame = 0;
+
+                    if (fullscreenBenchmarks) {
+                        fullscreenViewport = true;
+                        VIEWPORT_WIDTH = WINDOW_WIDTH;
+                        VIEWPORT_HEIGHT = WINDOW_HEIGHT;
+                        for (GLuint texture : textures) {
+                            glBindTexture(GL_TEXTURE_2D, texture);
+                            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, VIEWPORT_WIDTH, VIEWPORT_HEIGHT, 0, GL_RGBA, GL_FLOAT, nullptr);
+                        }
+                    }
+                }
+
+                ImGui::NewLine();
+
+                ImGui::Text("Multiple Pov Benchmark");
+                if (ImGui::Button("New Pov")) {
+                    POV_BENCHMARK_FRAMES.push_back(1);
+                    POV_BENCHMARK_YAWS.push_back(0.0);
+                    POV_BENCHMARK_PITCHES.push_back(0.0);
+                    POV_BENCHMARK_POSITIONS.push_back(vec3(0.0));
+                }
+                ImGui::InputInt("Selected Benchmark Pov", &selectedBenchmarkPov);
+                if (selectedBenchmarkPov >= 0 && selectedBenchmarkPov < POV_BENCHMARK_FRAMES.size()) {
+                    ImGui::DragInt("Pov Frames", &POV_BENCHMARK_FRAMES[selectedBenchmarkPov]);
+                    if (ImGui::Button("Current Camera Position")) {
+                        POV_BENCHMARK_YAWS[selectedBenchmarkPov] = cameraYaw;
+                        POV_BENCHMARK_PITCHES[selectedBenchmarkPov] = cameraPitch;
+                        POV_BENCHMARK_POSITIONS[selectedBenchmarkPov] = cameraPos;
+                    }
+                    ImGui::DragFloat("Pov Yaw", &POV_BENCHMARK_YAWS[selectedBenchmarkPov]);
+                    ImGui::DragFloat("Pov Pitch", &POV_BENCHMARK_PITCHES[selectedBenchmarkPov]);
+                    ImGui::DragFloat3("Pov Position", (float*)&POV_BENCHMARK_POSITIONS[selectedBenchmarkPov]);
+                }
+                if (!POV_BENCHMARK_FRAMES.empty() && ImGui::Button("Start Pov Benchmark") && !rotationBenchmark && !staticBenchmark && !multiplePovBenchmark) {
+                    multiplePovBenchmark = true;
+                    povBenchmarkAccumulatedFrames.clear();
+                    if (!POV_BENCHMARK_FRAMES.empty()) {
+                        povBenchmarkAccumulatedFrames.push_back(POV_BENCHMARK_FRAMES[0]);
+                        for (int i = 1; i < POV_BENCHMARK_FRAMES.size(); i++)
+                            povBenchmarkAccumulatedFrames.push_back(povBenchmarkAccumulatedFrames[i-1] + POV_BENCHMARK_FRAMES[i]);
+                    }
+
+                    POV_BENCHMARK_CURRENT_POV = 0;
+                    currentFrame = 0;
+
+                    if (fullscreenBenchmarks) {
+                        fullscreenViewport = true;
+                        VIEWPORT_WIDTH = WINDOW_WIDTH;
+                        VIEWPORT_HEIGHT = WINDOW_HEIGHT;
+                        for (GLuint texture : textures) {
+                            glBindTexture(GL_TEXTURE_2D, texture);
+                            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, VIEWPORT_WIDTH, VIEWPORT_HEIGHT, 0, GL_RGBA, GL_FLOAT, nullptr);
+                        }
+                    }
                 }
             }
             ImGui::End();
         }
 
-        if (!accumulate && !rotationBenchmark && !staticBenchmark) {
+        if (!accumulate && !rotationBenchmark && !staticBenchmark && !multiplePovBenchmark) {
             currentFrame = 0;
         }
 
@@ -386,6 +460,7 @@ int main() {
             if (currentFrame >= BENCHMARK_STEPS) {
                 rotationBenchmark = false;
                 currentFrame = 0;
+                fullscreenViewport = false;
                 continue;
             }
 
@@ -398,20 +473,40 @@ int main() {
             cameraRight = normalize(cross(cameraForward, vec3(0.0, 1.0, 0.0)));
             cameraUp = normalize(cross(cameraRight, cameraForward));
             cameraRotation = mat3(cameraRight, cameraUp, -cameraForward);
-
-            glBeginQuery(GL_TIME_ELAPSED, query);
         } else if (staticBenchmark) {
             if (currentFrame >= BENCHMARK_FRAMES) {
                 staticBenchmark = false;
                 currentFrame = 0;
+                fullscreenViewport = false;
+                continue;
+            }
+        } else if (multiplePovBenchmark) {
+            if (currentFrame >= povBenchmarkAccumulatedFrames.back()) {
+                multiplePovBenchmark = false;
+                currentFrame = 0;
+                fullscreenViewport = false;
                 continue;
             }
 
-            glBeginQuery(GL_TIME_ELAPSED, query);
+            if (currentFrame >= povBenchmarkAccumulatedFrames[POV_BENCHMARK_CURRENT_POV])
+                POV_BENCHMARK_CURRENT_POV++;
+
+            cameraPos = POV_BENCHMARK_POSITIONS[POV_BENCHMARK_CURRENT_POV];
+
+            mat4 tmp = mat4(1.0);
+            tmp = rotate(tmp, -POV_BENCHMARK_YAWS[POV_BENCHMARK_CURRENT_POV], UP);
+            tmp = rotate(tmp, POV_BENCHMARK_PITCHES[POV_BENCHMARK_CURRENT_POV], RIGHT);
+            cameraRotation = mat3(tmp);
+            cameraForward = cameraRotation * FORWARD;
+            cameraRight = cameraRotation * RIGHT;
+            cameraUp = cameraRotation * UP;
         } else {
             if (!wantCaptureKeyboard || viewportFocused)
                 processInput(window, deltaTime);
         }
+
+        if (rotationBenchmark || staticBenchmark || multiplePovBenchmark)
+            glBeginQuery(GL_TIME_ELAPSED, query);
 
         glBindFramebuffer(GL_FRAMEBUFFER, pathtracingFbo);
         glViewport(0, 0, VIEWPORT_WIDTH, VIEWPORT_HEIGHT);
@@ -453,16 +548,24 @@ int main() {
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
 
-        if (rotationBenchmark || staticBenchmark) {
+        if (rotationBenchmark || staticBenchmark || multiplePovBenchmark) {
             glEndQuery(GL_TIME_ELAPSED);
 
             GLuint64 ns;
             glGetQueryObjectui64v(query, GL_QUERY_RESULT, &ns);
 
             if (rotationBenchmark)
-                std::cout << float(currentFrame) / BENCHMARK_STEPS * 360.0f << ": " << ns / 1e6 << "  " << 1000.0 / (ns / 1e6) << std::endl;
-            else
-                std::cout << currentFrame << ": " << ns / 1e6 << "  " << 1000.0 / (ns / 1e6) << std::endl;
+                std::cout << "r " << float(currentFrame) / BENCHMARK_STEPS * 360.0f << ": " << ns / 1e6 << "  " << 1000.0 / (ns / 1e6) << std::endl;
+            else if (staticBenchmark)
+                std::cout << "s " << currentFrame << ": " << ns / 1e6 << "  " << 1000.0 / (ns / 1e6) << std::endl;
+            else {
+                std::cout << "p " << POV_BENCHMARK_CURRENT_POV << " ";
+                if (POV_BENCHMARK_CURRENT_POV == 0)
+                    std::cout << currentFrame;
+                else
+                    std::cout << (int)currentFrame - povBenchmarkAccumulatedFrames[POV_BENCHMARK_CURRENT_POV];
+                std::cout << ": " << ns / 1e6 << "  " << 1000.0 / (ns / 1e6) << std::endl;
+            }
         }
 
 
