@@ -54,9 +54,11 @@ struct BVHNode {
 struct Model {
     uint bvhNodeIndex;
     uint padding[3];
-    vec3 offset;
-    float scale;
+
     Material material;
+
+    mat4 modelWorldMatrix;
+    mat4 worldModelMatrix;
 };
 
 struct HitRecord {
@@ -232,15 +234,15 @@ HitRecord intersectScene(Ray ray) {
         Model model = models[i];
 
         Ray localRay = ray;
-        localRay.origin -= model.offset;
-        localRay.origin /= model.scale;
-        localRay.dir /= model.scale;
+        localRay.origin = vec3(model.modelWorldMatrix * vec4(localRay.origin, 1.0));
+        localRay.dir = vec3(model.modelWorldMatrix * vec4(localRay.dir, 0.0));
 
         HitRecord record = intersectBVH(localRay, model.bvhNodeIndex, closestT, model.material);
         if (record.hit && record.t < closestT) {
             closestRecord = record;
-            closestRecord.pos *= model.scale;
-            closestRecord.pos += model.offset;
+            closestRecord.pos = vec3(model.worldModelMatrix * vec4(closestRecord.pos, 1.0));
+            closestRecord.geometryNormal = normalize(vec3(model.worldModelMatrix * vec4(closestRecord.geometryNormal, 0.0)));
+            closestRecord.interpolatedNormal = normalize(vec3(model.worldModelMatrix * vec4(closestRecord.interpolatedNormal, 0.0)));
             closestRecord.material = model.material;
             closestT = record.t;
         }

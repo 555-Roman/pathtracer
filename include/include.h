@@ -6,6 +6,7 @@
 #include <glad/glad.h>
 #include <chrono>
 
+#include "glm/ext/matrix_transform.hpp"
 #include "stb_image/stb_image.h"
 
 using namespace glm;
@@ -27,6 +28,25 @@ struct Material {
     GLuint64 roughnessTextureHandle;
     GLuint64 metalnessTextureHandle;
     GLuint64 normalTextureHandle;
+};
+
+inline constexpr Material defaultMaterial = {
+    vec3(0.8),
+    1.0,
+    vec3(0.0),
+    0.0,
+    1.0,
+    0.0,
+    1.5,
+    0.0,
+    vec3(0.0),
+    0.0,
+    vec3(0.0),
+    0.0,
+    0,
+    0,
+    0,
+    0
 };
 
 struct Triangle {
@@ -51,12 +71,55 @@ struct BVHNode {
     uint triangleCount;
 };
 
-struct Model {
+struct GPU_Model {
     uint bvhNodeIndex;
     uint padding[3];
-    vec3 offset;
-    float scale;
+
     Material material;
+
+    mat4 modelWorldMatrix;
+    mat4 worldModelMatrix;
+};
+
+struct Model {
+    uint bvhNodeIndex = 0;
+
+    vec3 translation = vec3(0.0);
+    vec3 rotation = vec3(0.0);
+    vec3 scale = vec3(1.0);
+
+    mat4 modelWorldMatrix;
+    mat4 worldModelMatrix;
+
+    Material material = defaultMaterial;
+
+    void updateMatrices() {
+        worldModelMatrix = mat4(1.0);
+
+        worldModelMatrix = translate(worldModelMatrix, translation);
+
+        worldModelMatrix = rotate(worldModelMatrix, rotation.y, vec3(0.0, -1.0, 0.0));
+        worldModelMatrix = rotate(worldModelMatrix, rotation.x, vec3(-1.0, 0.0, 0.0));
+        worldModelMatrix = rotate(worldModelMatrix, rotation.z, vec3(0.0, 0.0, -1.0));
+
+        worldModelMatrix = glm::scale(worldModelMatrix, scale);
+
+        modelWorldMatrix = inverse(worldModelMatrix);
+    }
+
+    GPU_Model gpuModel() {
+        GPU_Model result{};
+
+        result.bvhNodeIndex = bvhNodeIndex;
+
+        result.material = material;
+
+        updateMatrices();
+        result.modelWorldMatrix = modelWorldMatrix;
+        result.worldModelMatrix = worldModelMatrix;
+
+        return result;
+    }
 };
 
 inline std::vector<Triangle> triangles;
@@ -64,6 +127,7 @@ inline GLuint triangle_ssbo;
 inline std::vector<BVHNode> bvhNodes;
 inline GLuint bvhNode_ssbo;
 inline std::vector<Model> models;
+inline std::vector<GPU_Model> gpuModels;
 inline GLuint model_ssbo;
 
 inline GLuint64 getTexture(const char* filePath) {

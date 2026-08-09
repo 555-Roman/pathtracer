@@ -102,7 +102,16 @@ void processMesh(aiMesh* mesh, const aiScene* scene, const char* filePath) {
     std::cout << "buildBVH(): " << ms << "ms" << std::endl;
 
     Material material = getMeshMaterial(mesh, scene, filePath);
-    models.push_back(Model{bvhNodeIndex, {0, 0, 0}, vec3(0.0), 1.0, material});
+    Model model = {
+        bvhNodeIndex,
+        vec3(0.0),
+        vec3(0.0),
+        vec3(1.0),
+        mat4(1.0),
+        mat4(1.0),
+        material
+    };
+    models.push_back(model);
 }
 
 Material getMeshMaterial(aiMesh* mesh, const aiScene* scene, const char* filePath) {

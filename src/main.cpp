@@ -329,11 +329,18 @@ int main() {
             {
                 ImGui::InputInt("Model Array Index", &selectedModelIndex);
                 if (selectedModelIndex >= 0 && selectedModelIndex < models.size()) {
-                    if (ImGui::DragFloat3("Offset", (float*)&models[selectedModelIndex].offset, 0.1)) {
+                    if (ImGui::DragFloat3("Offset", (float*)&models[selectedModelIndex].translation, 0.1)) {
+                        models[selectedModelIndex].updateMatrices();
                         sendModel(selectedModelIndex);
                         currentFrame = 0;
                     }
-                    if (ImGui::DragFloat("Scale", &models[selectedModelIndex].scale, 0.1)) {
+                    if (ImGui::DragFloat3("Rotation", (float*)&models[selectedModelIndex].rotation, 0.1)) {
+                        models[selectedModelIndex].updateMatrices();
+                        sendModel(selectedModelIndex);
+                        currentFrame = 0;
+                    }
+                    if (ImGui::DragFloat3("Scale", (float*)&models[selectedModelIndex].scale, 0.1)) {
+                        models[selectedModelIndex].updateMatrices();
                         sendModel(selectedModelIndex);
                         currentFrame = 0;
                     }
@@ -528,7 +535,7 @@ int main() {
         pathtraceProgram.setUniform2ui("halfScreenSize", VIEWPORT_WIDTH / 2, VIEWPORT_HEIGHT / 2);
         pathtraceProgram.setUniform1f("fov", fov);
 
-        pathtraceProgram.setUniform1ui("modelCount", models.size());
+        pathtraceProgram.setUniform1ui("modelCount", gpuModels.size());
 
         pathtraceProgram.setUniform1i("maxBounces", maxBounces);
         pathtraceProgram.setUniform1i("samples", samples);
