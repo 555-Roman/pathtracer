@@ -213,6 +213,7 @@ int main() {
     std::vector<int> povBenchmarkAccumulatedFrames;
     bool fullscreenBenchmarks = false;
 
+    bool useAspectRatio = false;
     float aspectRatioX = 16.0;
     float aspectRatioY = 9.0;
 
@@ -342,16 +343,20 @@ int main() {
 
                 if (ImGui::DragFloat("Camera Horizontal FOV", &fov, 1.0, 1.0, 179.0))
                     currentFrame = 0;
-                ImGui::Text("Aspect Ratio");
-                ImGui::SameLine();
-                ImGui::SetNextItemWidth(50);
-                bool changedX = ImGui::DragFloat("##aspectRatioX", &aspectRatioX, 0.1);
-                ImGui::SameLine();
-                ImGui::SetNextItemWidth(50);
-                bool changedY = ImGui::DragFloat("##aspectRatioY", &aspectRatioY, 0.1);
-                if (changedX || changedY) {
-                    aspectRatio = aspectRatioX / aspectRatioY;
-                    currentFrame = 0;
+
+                ImGui::Checkbox("Use Aspect Ratio", &useAspectRatio);
+                if (useAspectRatio) {
+                    ImGui::Text("Aspect Ratio");
+                    ImGui::SameLine();
+                    ImGui::SetNextItemWidth(50);
+                    bool changedX = ImGui::DragFloat("##aspectRatioX", &aspectRatioX, 0.1);
+                    ImGui::SameLine();
+                    ImGui::SetNextItemWidth(50);
+                    bool changedY = ImGui::DragFloat("##aspectRatioY", &aspectRatioY, 0.1);
+                    if (changedX || changedY) {
+                        aspectRatio = aspectRatioX / aspectRatioY;
+                        currentFrame = 0;
+                    }
                 }
             }
             ImGui::End();
