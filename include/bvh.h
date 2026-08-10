@@ -3,12 +3,12 @@
 
 #include "include.h"
 
-#define MAX_DEPTH 31
-#define SAH_PLANES 100
-#define SAH_BINS 100
-#define TRIANGLE_TEST
+inline int MAX_INNER_NODES = 31;
+inline int SAH_PLANES = 100;
+inline int SAH_BINS = 100;
+inline bool TRIANGLE_TEST = true;
 
-#define BVH_SPLIT_METHOD 3
+inline int BVH_SPLIT_METHOD = 3;
 
 inline constexpr float triCost = 1.1;
 inline constexpr float traverseCost = 1.0;

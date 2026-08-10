@@ -81,101 +81,101 @@ float EvaluateSAH(BVHNode node, int axis, float pos) {
 float FindBestSplitPlane(BVHNode& node, int& axis, float& splitPos) {
     float bestCost = 1.0 / 0.0;
     for (int a = 0; a < 3; a++) {
-#if BVH_SPLIT_METHOD == 2
-#ifdef TRIANGLE_TEST
-        if (node.triangleCount < SAH_PLANES) {
-            for (uint i = 0; i < node.triangleCount; i++) {
-                float candidatePos = centroids[node.index + i][a];
-                float cost = EvaluateSAH(node, a, candidatePos);
+        if (BVH_SPLIT_METHOD == 2) {
+            if (TRIANGLE_TEST) {
+                if (node.triangleCount < SAH_PLANES) {
+                    for (uint i = 0; i < node.triangleCount; i++) {
+                        float candidatePos = centroids[node.index + i][a];
+                        float cost = EvaluateSAH(node, a, candidatePos);
+                        if (cost < bestCost)
+                            splitPos = candidatePos, axis = a, bestCost = cost;
+                    }
+                    continue;
+                }
+            }
+
+            float boundsMin = 1.0 / 0.0, boundsMax = -1.0 / 0.0;
+            for (int i = 0; i < node.triangleCount; i++) {
+                vec3 centroid = centroids[node.index + i];
+                boundsMin = min( boundsMin, centroid[a] );
+                boundsMax = max( boundsMax, centroid[a] );
+            }
+            if (boundsMin == boundsMax) continue;
+
+            float scale = (boundsMax - boundsMin) / SAH_PLANES;
+            for (uint i = 1; i < SAH_PLANES; i++) {
+                float candidatePos = boundsMin + i * scale;
+                float cost = EvaluateSAH( node, a, candidatePos );
                 if (cost < bestCost)
                     splitPos = candidatePos, axis = a, bestCost = cost;
             }
-            continue;
-        }
-#endif
-
-        float boundsMin = 1.0 / 0.0, boundsMax = -1.0 / 0.0;
-        for (int i = 0; i < node.triangleCount; i++) {
-            vec3 centroid = centroids[node.index + i];
-            boundsMin = min( boundsMin, centroid[a] );
-            boundsMax = max( boundsMax, centroid[a] );
-        }
-        if (boundsMin == boundsMax) continue;
-
-        float scale = (boundsMax - boundsMin) / SAH_PLANES;
-        for (uint i = 1; i < SAH_PLANES; i++) {
-            float candidatePos = boundsMin + i * scale;
-            float cost = EvaluateSAH( node, a, candidatePos );
-            if (cost < bestCost)
-                splitPos = candidatePos, axis = a, bestCost = cost;
-        }
-#elif BVH_SPLIT_METHOD == 3
-#ifdef TRIANGLE_TEST
-        if (node.triangleCount < SAH_BINS) {
-            for (uint i = 0; i < node.triangleCount; i++) {
-                float candidatePos = centroids[node.index + i][a];
-                float cost = EvaluateSAH(node, a, candidatePos);
-                if (cost < bestCost)
-                    splitPos = candidatePos, axis = a, bestCost = cost;
+        } else if (BVH_SPLIT_METHOD == 3) {
+            if (TRIANGLE_TEST) {
+                if (node.triangleCount < SAH_BINS) {
+                    for (uint i = 0; i < node.triangleCount; i++) {
+                        float candidatePos = centroids[node.index + i][a];
+                        float cost = EvaluateSAH(node, a, candidatePos);
+                        if (cost < bestCost)
+                            splitPos = candidatePos, axis = a, bestCost = cost;
+                    }
+                    continue;
+                }
             }
-            continue;
-        }
-#endif
 
-        float boundsMin = 1.0 / 0.0, boundsMax = -1.0 / 0.0;
-        for (int i = 0; i < node.triangleCount; i++) {
-            vec3 centroid = centroids[node.index + i];
-            boundsMin = min( boundsMin, centroid[a] );
-            boundsMax = max( boundsMax, centroid[a] );
-        }
-        if (boundsMin == boundsMax) continue;
+            float boundsMin = 1.0 / 0.0, boundsMax = -1.0 / 0.0;
+            for (int i = 0; i < node.triangleCount; i++) {
+                vec3 centroid = centroids[node.index + i];
+                boundsMin = min( boundsMin, centroid[a] );
+                boundsMax = max( boundsMax, centroid[a] );
+            }
+            if (boundsMin == boundsMax) continue;
 
-        // populate the bins
-        BVHNode bins[SAH_BINS];
-        for (int i = 0; i < SAH_BINS; i++) {
-            bins[i].triangleCount = 0;
-            bins[i].minBound = vec3(+(1.0f / 0.0f));
-            bins[i].maxBound = vec3(-(1.0f / 0.0f));
-        }
-        float scale = SAH_BINS / (boundsMax - boundsMin);
-        for (uint i = 0; i < node.triangleCount; i++) {
-            Triangle t = triangles[node.index + i];
-            int binIdx = min(SAH_BINS - 1, (int)((centroids[node.index + i][a] - boundsMin) * scale));
-            bins[binIdx].triangleCount++;
-            bins[binIdx].minBound = min(min(min(bins[binIdx].minBound, t.aPosition), t.bPosition), t.cPosition);
-            bins[binIdx].maxBound = max(max(max(bins[binIdx].maxBound, t.aPosition), t.bPosition), t.cPosition);
-        }
+            // populate the bins
+            BVHNode bins[SAH_BINS];
+            for (int i = 0; i < SAH_BINS; i++) {
+                bins[i].triangleCount = 0;
+                bins[i].minBound = vec3(+(1.0f / 0.0f));
+                bins[i].maxBound = vec3(-(1.0f / 0.0f));
+            }
+            float scale = SAH_BINS / (boundsMax - boundsMin);
+            for (uint i = 0; i < node.triangleCount; i++) {
+                Triangle t = triangles[node.index + i];
+                int binIdx = min(SAH_BINS - 1, (int)((centroids[node.index + i][a] - boundsMin) * scale));
+                bins[binIdx].triangleCount++;
+                bins[binIdx].minBound = min(min(min(bins[binIdx].minBound, t.aPosition), t.bPosition), t.cPosition);
+                bins[binIdx].maxBound = max(max(max(bins[binIdx].maxBound, t.aPosition), t.bPosition), t.cPosition);
+            }
 
-        // gather data for the 7 planes between the 8 bins
-        float leftArea[SAH_BINS - 1], rightArea[SAH_BINS - 1];
-        int leftCount[SAH_BINS - 1], rightCount[SAH_BINS - 1];
-        BVHNode leftBox = {vec3(+(1.0 / 0.0)), 0, vec3(-(1.0/0.0)), 0};
-        BVHNode rightBox = {vec3(+(1.0 / 0.0)), 0, vec3(-(1.0/0.0)), 0};
-        int leftSum = 0, rightSum = 0;
-        for (int i = 0; i < SAH_BINS - 1; i++) {
-            leftSum += bins[i].triangleCount;
-            leftCount[i] = leftSum;
-            leftBox.minBound = min(leftBox.minBound, bins[i].minBound);
-            leftBox.maxBound = max(leftBox.maxBound, bins[i].maxBound);
-            vec3 e = leftBox.maxBound - leftBox.minBound;
-            leftArea[i] = e.x * e.y + e.y * e.z + e.z * e.x;
+            // gather data for the 7 planes between the 8 bins
+            float leftArea[SAH_BINS - 1], rightArea[SAH_BINS - 1];
+            int leftCount[SAH_BINS - 1], rightCount[SAH_BINS - 1];
+            BVHNode leftBox = {vec3(+(1.0 / 0.0)), 0, vec3(-(1.0/0.0)), 0};
+            BVHNode rightBox = {vec3(+(1.0 / 0.0)), 0, vec3(-(1.0/0.0)), 0};
+            int leftSum = 0, rightSum = 0;
+            for (int i = 0; i < SAH_BINS - 1; i++) {
+                leftSum += bins[i].triangleCount;
+                leftCount[i] = leftSum;
+                leftBox.minBound = min(leftBox.minBound, bins[i].minBound);
+                leftBox.maxBound = max(leftBox.maxBound, bins[i].maxBound);
+                vec3 e = leftBox.maxBound - leftBox.minBound;
+                leftArea[i] = e.x * e.y + e.y * e.z + e.z * e.x;
 
-            rightSum += bins[SAH_BINS - 1 - i].triangleCount;
-            rightCount[SAH_BINS - 2 - i] = rightSum;
-            rightBox.minBound = min(rightBox.minBound, bins[SAH_BINS - 1 - i].minBound);
-            rightBox.maxBound = max(rightBox.maxBound, bins[SAH_BINS - 1 - i].maxBound);
-            e = rightBox.maxBound - rightBox.minBound;
-            rightArea[SAH_BINS - 2 - i] = e.x * e.y + e.y * e.z + e.z * e.x;
-        }
+                rightSum += bins[SAH_BINS - 1 - i].triangleCount;
+                rightCount[SAH_BINS - 2 - i] = rightSum;
+                rightBox.minBound = min(rightBox.minBound, bins[SAH_BINS - 1 - i].minBound);
+                rightBox.maxBound = max(rightBox.maxBound, bins[SAH_BINS - 1 - i].maxBound);
+                e = rightBox.maxBound - rightBox.minBound;
+                rightArea[SAH_BINS - 2 - i] = e.x * e.y + e.y * e.z + e.z * e.x;
+            }
 
-        // calculate SAH cost for the SAH_BINS - 1 planes
-        scale = (boundsMax - boundsMin) / SAH_BINS;
-        for (int i = 0; i < SAH_BINS - 1; i++) {
-            float planeCost = leftCount[i] * leftArea[i] + rightCount[i] * rightArea[i];
-            if (planeCost < bestCost)
-                axis = a, splitPos = boundsMin + scale * (i + 1), bestCost = planeCost;
+            // calculate SAH cost for the SAH_BINS - 1 planes
+            scale = (boundsMax - boundsMin) / SAH_BINS;
+            for (int i = 0; i < SAH_BINS - 1; i++) {
+                float planeCost = leftCount[i] * leftArea[i] + rightCount[i] * rightArea[i];
+                if (planeCost < bestCost)
+                    axis = a, splitPos = boundsMin + scale * (i + 1), bestCost = planeCost;
+            }
         }
-#endif
     }
     return bestCost;
 }
@@ -183,55 +183,53 @@ float FindBestSplitPlane(BVHNode& node, int& axis, float& splitPos) {
 void subdivide(uint nodeIdx, uint depth) {
     // terminate recursion
     BVHNode node = bvhNodes[nodeIdx];
-    if (node.triangleCount == 1 || depth >= MAX_DEPTH) return;
+    if (node.triangleCount == 1 || depth >= MAX_INNER_NODES - 1) return;
 
-#if BVH_SPLIT_METHOD == 0
-    // determine split axis and position
-    vec3 extent = node.maxBound - node.minBound;
-    int axis = 0;
-    if (extent.y > extent.x) axis = 1;
-    if (extent.z > extent[axis]) axis = 2;
-    float splitPos = node.minBound[axis] + extent[axis] * 0.5f;
-#elif BVH_SPLIT_METHOD == 1
-    // determine split axis using SAH
-    int bestAxis = -1;
-    float bestPos = 0, bestCost = 1e30f;
-    for (int axis = 0; axis < 3; axis++) for (uint i = 0; i < node.triangleCount; i++) {
-        float candidatePos = centroids[node.index + i][axis];
-        float cost = EvaluateSAH(node, axis, candidatePos);
-        if (cost < bestCost)
-            bestPos = candidatePos, bestAxis = axis, bestCost = cost;
+    int axis;
+    float splitPos;
+    if (BVH_SPLIT_METHOD == 0) {
+        // determine split axis and position
+        vec3 extent = node.maxBound - node.minBound;
+        axis = 0;
+        if (extent.y > extent.x) axis = 1;
+        if (extent.z > extent[axis]) axis = 2;
+        float splitPos = node.minBound[axis] + extent[axis] * 0.5f;
+    } else if (BVH_SPLIT_METHOD == 1) {
+        // determine split axis using SAH
+        int bestAxis = -1;
+        float bestPos = 0, bestCost = 1e30f;
+        for (int axis = 0; axis < 3; axis++) for (uint i = 0; i < node.triangleCount; i++) {
+            float candidatePos = centroids[node.index + i][axis];
+            float cost = EvaluateSAH(node, axis, candidatePos);
+            if (cost < bestCost)
+                bestPos = candidatePos, bestAxis = axis, bestCost = cost;
+        }
+        axis = bestAxis;
+        splitPos = bestPos;
+
+        vec3 e = node.maxBound - node.minBound; // extent of parent
+        float parentArea = e.x * e.y + e.y * e.z + e.z * e.x;
+        float parentCost = node.triangleCount * parentArea;
+        if (bestCost >= parentCost) return;
+    } else if (BVH_SPLIT_METHOD == 2) {
+        float splitCost = FindBestSplitPlane(node, axis, splitPos);
+
+        vec3 e = node.maxBound - node.minBound;
+        float halfArea = e.x * e.y + e.y * e.z + e.z * e.x;
+        splitCost = traverseCost + (triCost * splitCost / halfArea);
+        float nosplitCost = triCost * node.triangleCount;
+        if (splitCost >= nosplitCost) return;
+    } else if (BVH_SPLIT_METHOD == 3) {
+        float splitCost = FindBestSplitPlane(node, axis, splitPos);
+
+        vec3 e = node.maxBound - node.minBound;
+        float halfArea = e.x * e.y + e.y * e.z + e.z * e.x;
+        splitCost = traverseCost + (triCost * splitCost / halfArea);
+        float nosplitCost = triCost * node.triangleCount;
+        if (splitCost >= nosplitCost) return;
+    } else {
+        return;
     }
-    int axis = bestAxis;
-    float splitPos = bestPos;
-
-    vec3 e = node.maxBound - node.minBound; // extent of parent
-    float parentArea = e.x * e.y + e.y * e.z + e.z * e.x;
-    float parentCost = node.triangleCount * parentArea;
-    if (bestCost >= parentCost) return;
-#elif BVH_SPLIT_METHOD == 2
-    int axis;
-    float splitPos;
-    float splitCost = FindBestSplitPlane(node, axis, splitPos);
-
-    vec3 e = node.maxBound - node.minBound;
-    float halfArea = e.x * e.y + e.y * e.z + e.z * e.x;
-    splitCost = traverseCost + (triCost * splitCost / halfArea);
-    float nosplitCost = triCost * node.triangleCount;
-    if (splitCost >= nosplitCost) return;
-#elif BVH_SPLIT_METHOD == 3
-    int axis;
-    float splitPos;
-    float splitCost = FindBestSplitPlane(node, axis, splitPos);
-
-    vec3 e = node.maxBound - node.minBound;
-    float halfArea = e.x * e.y + e.y * e.z + e.z * e.x;
-    splitCost = traverseCost + (triCost * splitCost / halfArea);
-    float nosplitCost = triCost * node.triangleCount;
-    if (splitCost >= nosplitCost) return;
-#else
-    return;
-#endif
 
     // in-place partition
     int i = node.index;

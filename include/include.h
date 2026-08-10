@@ -11,6 +11,18 @@
 
 using namespace glm;
 
+#define RIGHT vec3(1.0, 0.0, 0.0)
+#define UP vec3(0.0, 1.0, 0.0)
+#define FORWARD vec3(0.0, 0.0, -1.0)
+
+inline mat3 getRotationMatrix(float yaw, float pitch, float roll) {
+    mat4 tmp = mat4(1.0);
+    tmp = rotate(tmp, -radians(yaw), UP);
+    tmp = rotate(tmp, radians(pitch), RIGHT);
+    tmp = rotate(tmp, radians(roll), FORWARD);
+    return mat3(tmp);
+}
+
 struct Material {
     vec3 albedo;
     float opacity;
@@ -98,9 +110,8 @@ struct Model {
 
         worldModelMatrix = translate(worldModelMatrix, translation);
 
-        worldModelMatrix = rotate(worldModelMatrix, rotation.y, vec3(0.0, -1.0, 0.0));
-        worldModelMatrix = rotate(worldModelMatrix, rotation.x, vec3(-1.0, 0.0, 0.0));
-        worldModelMatrix = rotate(worldModelMatrix, rotation.z, vec3(0.0, 0.0, -1.0));
+        mat3 rotationMatrix = getRotationMatrix(rotation.y, rotation.x, rotation.z);
+        worldModelMatrix *= mat4(rotationMatrix);
 
         worldModelMatrix = glm::scale(worldModelMatrix, scale);
 

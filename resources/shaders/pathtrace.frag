@@ -184,11 +184,11 @@ HitRecord intersectBVH(Ray ray, uint rootIdx, float tMax, Material material) {
     debugColour.b += 1;
     if (AABBDst(ray, bvhNodes[rootIdx].minBound, bvhNodes[rootIdx].maxBound) >= closestT) return closestRecord;
 
-    uint stack[32];
+    uint stack[31 + 1];
     uint stackPtr = 0;
     stack[stackPtr++] = rootIdx;
 
-    while (stackPtr > 0 && stackPtr <= 32) {
+    while (stackPtr > 0 && stackPtr <= 31 + 1) {
         BVHNode node = bvhNodes[stack[--stackPtr]];
 
         if (node.triangleCount > 0) {

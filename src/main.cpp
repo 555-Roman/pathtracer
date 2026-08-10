@@ -34,8 +34,9 @@ GLuint textures[2];
 GLuint displayTexture;
 
 bool cameraRelativeMovement = false;
+bool cameraRelativeRotation = false;
 float MOVEMENT_SPEED = 1.0;
-float ROTATION_SPEED = 30.0;
+float ROTATION_SPEED = 90.0;
 vec3 cameraPos = vec3(2.17881, 2.43326, 3.91674);
 float cameraPitch = -32.5058;
 float cameraYaw = -34.9385;
@@ -300,13 +301,6 @@ int main() {
 
             ImGui::Begin("Options");
             {
-                if (ImGui::InputText("Import file path", &importFilePath, ImGuiInputTextFlags_EnterReturnsTrue)) {
-                    importAndSend(importFilePath.c_str());
-                    currentFrame = 0;
-                }
-
-                ImGui::NewLine();
-
                 if (ImGui::DragInt("Max Bounces", &maxBounces, 1, 0, INT_MAX))
                     currentFrame = 0;
                 ImGui::DragInt("Samples per Frame", &samples, 1, 1, INT_MAX);
@@ -321,8 +315,48 @@ int main() {
             }
             ImGui::End();
 
+            ImGui::Begin("Import");
+            {
+                if (ImGui::InputText("Import file path", &importFilePath, ImGuiInputTextFlags_EnterReturnsTrue)) {
+                    importAndSend(importFilePath.c_str());
+                    currentFrame = 0;
+                }
+
+                ImGui::NewLine();
+                ImGui::NewLine();
+
+                ImGui::Text("BVH Options (Leave Default if Confused)");
+
+                ImGui::NewLine();
+
+                ImGui::Text("Split Method:");
+                ImGui::Text("  0: Midpoint (Fastest Construction, Worst Performance)");
+                ImGui::Text("  1: Individual Triangles (Slowest Construction (minutes if not more), Best Performance)");
+                ImGui::Text("  2: Planes (Quick Construction, Ok Performance)");
+                ImGui::Text("  3: Bins (Quicker than Planes, Recommended)");
+                if (ImGui::InputInt("Bvh Split Method", &BVH_SPLIT_METHOD)) {
+                    if (BVH_SPLIT_METHOD > 0 || BVH_SPLIT_METHOD > 3)
+                        BVH_SPLIT_METHOD = 0;
+                }
+
+                ImGui::NewLine();
+
+                ImGui::Text("Plane Count: Number of Regions the Bigger Box Gets Split Into (Higher is Better, but Takes Longer)");
+                ImGui::DragInt("Plane Count", &SAH_PLANES, 1, 1, INT_MAX);
+                ImGui::Text("Bin Count:   Same as Plane Count but for Split Method 3");
+                ImGui::DragInt("Bin Count  ", &SAH_BINS, 1, 1, INT_MAX);
+
+                ImGui::NewLine();
+
+                ImGui::Text("Check Triangles: Use Individual Triangles Instead of Planes / Bins when there are less Triangles Than Splits (Recommended)");
+                ImGui::Checkbox("Check Triangles", &TRIANGLE_TEST);
+            }
+            ImGui::End();
+
             ImGui::Begin("Camera");
             {
+                ImGui::Checkbox("Camera Relative Movement", &cameraRelativeMovement);
+                ImGui::Checkbox("Camera Relative Rotation", &cameraRelativeRotation);
 
                 ImGui::DragFloat("Movement Speed", &MOVEMENT_SPEED, 0.1);
                 ImGui::DragFloat("Rotation Speed", &ROTATION_SPEED, 0.1);
@@ -700,18 +734,34 @@ void processInput(GLFWwindow *window, float dt) {
     bool moved = false;
     bool rotated = false;
 
-    vec3 forwardMovement =
-        float((glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) - (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS))
-        * normalize(vec3(cameraForward.x, 0.0, cameraForward.z)) * dt * MOVEMENT_SPEED;
-    vec3 lateralMovement =
-        float((glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) - (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS))
-        * normalize(vec3(cameraRight.x, 0.0, cameraRight.z)) * dt * MOVEMENT_SPEED;
-    vec3 verticalMovement =
-        float((glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) - (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS))
-        * vec3(0.0, 1.0, 0.0) * dt * MOVEMENT_SPEED;
-    if (forwardMovement != vec3(0.0) || lateralMovement != vec3(0.0) || verticalMovement != vec3(0.0)) {
-        moved = true;
-        cameraPos += forwardMovement + lateralMovement + verticalMovement;
+    if (cameraRelativeMovement) {
+        vec3 forwardMovement =
+            float((glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) - (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS))
+            * cameraForward * dt * MOVEMENT_SPEED;
+        vec3 lateralMovement =
+            float((glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) - (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS))
+            * cameraRight * dt * MOVEMENT_SPEED;
+        vec3 verticalMovement =
+            float((glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) - (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS))
+            * cameraUp * dt * MOVEMENT_SPEED;
+        if (forwardMovement != vec3(0.0) || lateralMovement != vec3(0.0) || verticalMovement != vec3(0.0)) {
+            moved = true;
+            cameraPos += forwardMovement + lateralMovement + verticalMovement;
+        }
+    } else {
+        vec3 forwardMovement =
+            float((glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) - (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS))
+            * normalize(vec3(cameraForward.x, 0.0, cameraForward.z)) * dt * MOVEMENT_SPEED;
+        vec3 lateralMovement =
+            float((glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) - (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS))
+            * normalize(vec3(cameraRight.x, 0.0, cameraRight.z)) * dt * MOVEMENT_SPEED;
+        vec3 verticalMovement =
+            float((glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) - (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS))
+            * vec3(0.0, 1.0, 0.0) * dt * MOVEMENT_SPEED;
+        if (forwardMovement != vec3(0.0) || lateralMovement != vec3(0.0) || verticalMovement != vec3(0.0)) {
+            moved = true;
+            cameraPos += forwardMovement + lateralMovement + verticalMovement;
+        }
     }
 
     float pitchDelta =
@@ -723,16 +773,33 @@ void processInput(GLFWwindow *window, float dt) {
     float rollDelta =
         ((glfwGetKey(window, GLFW_KEY_PERIOD) == GLFW_PRESS) - (glfwGetKey(window, GLFW_KEY_COMMA) == GLFW_PRESS))
         * dt * ROTATION_SPEED;
-    if (pitchDelta != 0.0 || yawDelta != 0.0 || rollDelta != 0.0) {
-        rotated = true;
-        cameraPitch += pitchDelta;
-        cameraYaw += yawDelta;
-        cameraRoll += rollDelta;
+    if (cameraRelativeRotation) {
+        if (pitchDelta != 0.0 || yawDelta != 0.0 || rollDelta != 0.0) {
+            rotated = true;
 
-        cameraRotation = getRotationMatrix(cameraYaw, cameraPitch, cameraRoll);
-        cameraForward = cameraRotation * FORWARD;
-        cameraRight = cameraRotation * RIGHT;
-        cameraUp = cameraRotation * UP;
+            mat3 localRotation = getRotationMatrix(yawDelta, pitchDelta, rollDelta);
+            cameraRotation *= localRotation;
+
+            cameraForward = cameraRotation * FORWARD;
+            cameraRight = cameraRotation * RIGHT;
+            cameraUp = cameraRotation * UP;
+
+            cameraPitch = degrees(asin(clamp(-cameraRotation[2][1], -1.0f, 1.0f)));
+            cameraYaw = degrees(atan2(-cameraRotation[2][0], cameraRotation[2][2]));
+            cameraRoll = degrees(atan2(cameraRotation[1][0], cameraRotation[1][1]));
+        }
+    } else {
+        if (pitchDelta != 0.0 || yawDelta != 0.0 || rollDelta != 0.0) {
+            rotated = true;
+            cameraPitch += pitchDelta;
+            cameraYaw += yawDelta;
+            cameraRoll += rollDelta;
+
+            cameraRotation = getRotationMatrix(cameraYaw, cameraPitch, cameraRoll);
+            cameraForward = cameraRotation * FORWARD;
+            cameraRight = cameraRotation * RIGHT;
+            cameraUp = cameraRotation * UP;
+        }
     }
 
     if (moved || rotated) {
