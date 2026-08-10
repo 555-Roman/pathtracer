@@ -35,12 +35,12 @@ GLuint displayTexture;
 
 float MOVEMENT_SPEED = 1.0;
 float ROTATION_SPEED = 30.0;
-vec3 cameraPos = vec3(1, 2, -3);
-float cameraPitch = -0.470506;
-float cameraYaw = -1.20844;
-vec3 cameraRight = vec3(0.354479, 0, -0.935064);
-vec3 cameraUp = vec3(-0.423899, 0.891339, -0.160698);
-vec3 cameraForward = vec3(-0.833459, -0.453337, -0.315961);
+vec3 cameraPos = vec3(2.17881, 2.43326, 3.91674);
+float cameraPitch = -32.5058;
+float cameraYaw = -34.9385;
+vec3 cameraRight = vec3(0.819768, 0, -0.572696);
+vec3 cameraUp = vec3(-0.307758, 0.843338, -0.44053);
+vec3 cameraForward = vec3(-0.482976, -0.537384, -0.691341);
 mat3 cameraRotation = mat3(cameraRight, cameraUp, -cameraForward);
 // float fov = 39.5978;
 float fov = 90.0;
@@ -248,20 +248,27 @@ int main() {
 
                 int width;
                 int height;
-                if (viewportSize.x / viewportSize.y > aspectRatio) {
-                    height = std::max(1, (int)std::round(viewportSize.y));
-                    width  = std::max(1, (int)std::round(height * aspectRatio));
+                if (useAspectRatio) {
+                    if (viewportSize.x / viewportSize.y > aspectRatio) {
+                        height = std::max(1, (int)std::round(viewportSize.y));
+                        width  = std::max(1, (int)std::round(height * aspectRatio));
 
-                    float xPadding = (viewportSize.x - width) / 2;
-                    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + xPadding);
-                    ImGui::Image((ImTextureID)(intptr_t)displayTexture, ImVec2(width, viewportSize.y), ImVec2(0, 1), ImVec2(1, 0));
+                        float xPadding = (viewportSize.x - width) / 2;
+                        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + xPadding);
+                        ImGui::Image((ImTextureID)(intptr_t)displayTexture, ImVec2(width, viewportSize.y), ImVec2(0, 1), ImVec2(1, 0));
+                    } else {
+                        width  = std::max(1, (int)std::round(viewportSize.x));
+                        height = std::max(1, (int)std::round(width / aspectRatio));
+
+                        float yPadding = (viewportSize.y - height) / 2;
+                        ImGui::SetCursorPosY(ImGui::GetCursorPosY() + yPadding);
+                        ImGui::Image((ImTextureID)(intptr_t)displayTexture, ImVec2(viewportSize.x, height), ImVec2(0, 1), ImVec2(1, 0));
+                    }
                 } else {
-                    width  = std::max(1, (int)std::round(viewportSize.x));
-                    height = std::max(1, (int)std::round(width / aspectRatio));
+                    width = viewportSize.x;
+                    height = viewportSize.y;
 
-                    float yPadding = (viewportSize.y - height) / 2;
-                    ImGui::SetCursorPosY(ImGui::GetCursorPosY() + yPadding);
-                    ImGui::Image((ImTextureID)(intptr_t)displayTexture, ImVec2(viewportSize.x, height), ImVec2(0, 1), ImVec2(1, 0));
+                    ImGui::Image((ImTextureID)(intptr_t)displayTexture, ImVec2(width, height), ImVec2(0, 1), ImVec2(1, 0));
                 }
 
                 if (width != VIEWPORT_WIDTH || height != VIEWPORT_HEIGHT) {
