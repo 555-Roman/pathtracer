@@ -33,12 +33,9 @@ Shader displayProgram;
 GLuint textures[2];
 GLuint displayTexture;
 
-#define RIGHT vec3(1.0, 0.0, 0.0)
-#define UP vec3(0.0, 1.0, 0.0)
-#define FORWARD vec3(0.0, 0.0, -1.0)
 float MOVEMENT_SPEED = 1.0;
-float ROTATION_SPEED = 1.0;
-vec3 cameraPos = vec3(0.743709, 7.07061, 0.806511);
+float ROTATION_SPEED = 30.0;
+vec3 cameraPos = vec3(1, 2, -3);
 float cameraPitch = -0.470506;
 float cameraYaw = -1.20844;
 vec3 cameraRight = vec3(0.354479, 0, -0.935064);
@@ -320,20 +317,20 @@ int main() {
                 ImGui::DragFloat("Rotation Speed", &ROTATION_SPEED, 0.1);
                 if (ImGui::DragFloat3("Camera Position", (float*)&cameraPos, 0.1))
                     currentFrame = 0;
-                if (ImGui::DragFloat("Camera Yaw", &cameraYaw, 1.0 / 180.0 * 3.1415926)) {
+                if (ImGui::DragFloat("Camera Yaw", &cameraYaw, 1.0)) {
                     mat4 tmp = mat4(1.0);
-                    tmp = rotate(tmp, -cameraYaw, UP);
-                    tmp = rotate(tmp, cameraPitch, RIGHT);
+                    tmp = rotate(tmp, -radians(cameraYaw), UP);
+                    tmp = rotate(tmp, radians(cameraPitch), RIGHT);
                     cameraRotation = mat3(tmp);
                     cameraForward = cameraRotation * FORWARD;
                     cameraRight = cameraRotation * RIGHT;
                     cameraUp = cameraRotation * UP;
                     currentFrame = 0;
                 }
-                if (ImGui::DragFloat("Camera Pitch", &cameraPitch, 1.0 / 180.0 * 3.1415926)) {
+                if (ImGui::DragFloat("Camera Pitch", &cameraPitch, 1.0)) {
                     mat4 tmp = mat4(1.0);
-                    tmp = rotate(tmp, -cameraYaw, UP);
-                    tmp = rotate(tmp, cameraPitch, RIGHT);
+                    tmp = rotate(tmp, -radians(cameraYaw), UP);
+                    tmp = rotate(tmp, radians(cameraPitch), RIGHT);
                     cameraRotation = mat3(tmp);
                     cameraForward = cameraRotation * FORWARD;
                     cameraRight = cameraRotation * RIGHT;
@@ -370,7 +367,7 @@ int main() {
                         sendModel(selectedModelIndex);
                         currentFrame = 0;
                     }
-                    if (ImGui::DragFloat3("Rotation", (float*)&models[selectedModelIndex].rotation, 0.1)) {
+                    if (ImGui::DragFloat3("Rotation", (float*)&models[selectedModelIndex].rotation, 1.0)) {
                         models[selectedModelIndex].updateMatrices();
                         sendModel(selectedModelIndex);
                         currentFrame = 0;
@@ -419,8 +416,8 @@ int main() {
                 ImGui::NewLine();
 
                 ImGui::Text("Static Benchmark");
-                ImGui::DragFloat("Benchmark Yaw", &BENCHMARK_YAW, 1.0 / 180.0 * 3.1415926);
-                ImGui::DragFloat("Benchmark Pitch", &BENCHMARK_PITCH, 1.0 / 180.0 * 3.1415926);
+                ImGui::DragFloat("Benchmark Yaw", &BENCHMARK_YAW, 1.0);
+                ImGui::DragFloat("Benchmark Pitch", &BENCHMARK_PITCH, 1.0);
                 ImGui::DragFloat3("Benchmark Position", (float*)&BENCHMARK_POSITION, 0.1);
                 ImGui::DragInt("Benchmark Frames", &BENCHMARK_FRAMES, 1, 1, INT_MAX);
                 if (ImGui::Button("Start Static Benchmark") && !rotationBenchmark && !staticBenchmark && !multiplePovBenchmark) {
@@ -429,8 +426,8 @@ int main() {
                     cameraPos = BENCHMARK_POSITION;
 
                     mat4 tmp = mat4(1.0);
-                    tmp = rotate(tmp, -BENCHMARK_YAW, UP);
-                    tmp = rotate(tmp, BENCHMARK_PITCH, RIGHT);
+                    tmp = rotate(tmp, -radians(BENCHMARK_YAW), UP);
+                    tmp = rotate(tmp, radians(BENCHMARK_PITCH), RIGHT);
                     cameraRotation = mat3(tmp);
                     cameraForward = cameraRotation * FORWARD;
                     cameraRight = cameraRotation * RIGHT;
@@ -537,8 +534,8 @@ int main() {
             cameraPos = POV_BENCHMARK_POSITIONS[POV_BENCHMARK_CURRENT_POV];
 
             mat4 tmp = mat4(1.0);
-            tmp = rotate(tmp, -POV_BENCHMARK_YAWS[POV_BENCHMARK_CURRENT_POV], UP);
-            tmp = rotate(tmp, POV_BENCHMARK_PITCHES[POV_BENCHMARK_CURRENT_POV], RIGHT);
+            tmp = rotate(tmp, -radians(POV_BENCHMARK_YAWS[POV_BENCHMARK_CURRENT_POV]), UP);
+            tmp = rotate(tmp, radians(POV_BENCHMARK_PITCHES[POV_BENCHMARK_CURRENT_POV]), RIGHT);
             cameraRotation = mat3(tmp);
             cameraForward = cameraRotation * FORWARD;
             cameraRight = cameraRotation * RIGHT;
@@ -705,17 +702,17 @@ void processInput(GLFWwindow *window, float dt) {
 
     float pitchDelta =
         ((glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS) - (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS))
-        * 3.1415926f * dt * ROTATION_SPEED;
+        * dt * ROTATION_SPEED;
     float yawDelta =
         ((glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS) - (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS))
-        * 3.1415926f * dt * ROTATION_SPEED;
+        * dt * ROTATION_SPEED;
     if (pitchDelta != 0.0 || yawDelta != 0.0) {
         rotated = true;
         cameraPitch += pitchDelta;
         cameraYaw += yawDelta;
         mat4 tmp = mat4(1.0);
-        tmp = rotate(tmp, -cameraYaw, UP);
-        tmp = rotate(tmp, cameraPitch, RIGHT);
+        tmp = rotate(tmp, -radians(cameraYaw), UP);
+        tmp = rotate(tmp, radians(cameraPitch), RIGHT);
         cameraRotation = mat3(tmp);
         cameraForward = cameraRotation * FORWARD;
         cameraRight = cameraRotation * RIGHT;
