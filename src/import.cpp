@@ -33,12 +33,16 @@ void import(const char* filePath) {
         return;
     }
 
+    uint startBvhNodeCount = bvhNodes.size();
+
     processNode(scene->mRootNode, scene, filePath);
 
     auto end = std::chrono::high_resolution_clock::now();
 
     auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
     std::cout << "import():   " << ms << "ms" << std::endl;
+    std::cout << "BVHNodes:   " << bvhNodes.size() - startBvhNodeCount << std::endl;
+    std::cout << "max depth:  " << bvhMaxDepth << std::endl;
 }
 
 void processNode(aiNode* node, const aiScene* scene, const char* filePath) {

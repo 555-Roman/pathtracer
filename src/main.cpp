@@ -350,6 +350,11 @@ int main() {
 
                 ImGui::Text("Check Triangles: Use Individual Triangles Instead of Planes / Bins when there are less Triangles Than Splits (Recommended)");
                 ImGui::Checkbox("Check Triangles", &TRIANGLE_TEST);
+
+                ImGui::NewLine();
+
+                ImGui::Text("Bounding Box Centroid: Use the Centroid of a Triangle's Bounding Box Instead of the Triangle's Centroid Itself");
+                ImGui::Checkbox("Bounding Box Centroid", &USE_BOX_CENTROIDS);
             }
             ImGui::End();
 

@@ -3,13 +3,21 @@
 void buildBVH(uint triangleIndex, uint triangleCount) {
     for (uint i = triangleIndex; i < triangleIndex + triangleCount; i++) {
         Triangle t = triangles[i];
-        centroids.push_back((t.aPosition + t.bPosition + t.cPosition) * 0.3333333f);
+        if (USE_BOX_CENTROIDS) {
+            vec3 minBound = min(min(t.aPosition, t.bPosition), t.cPosition);
+            vec3 maxBound = max(max(t.aPosition, t.bPosition), t.cPosition);
+            centroids.push_back((minBound + maxBound) * 0.5f);
+        } else {
+            centroids.push_back((t.aPosition + t.bPosition + t.cPosition) * 0.3333333f);
+        }
     }
 
     // assign all triangles to root node
     uint rootNodeIdx = bvhNodes.size();
     bvhNodes.push_back({vec3(0.0), triangleIndex, vec3(0.0), triangleCount});
     updateBounds(rootNodeIdx);
+
+    bvhMaxDepth = 0;
 
     // subdivide recursively
     subdivide(rootNodeIdx);
@@ -83,7 +91,7 @@ float FindBestSplitPlane(BVHNode& node, int& axis, float& splitPos) {
     for (int a = 0; a < 3; a++) {
         if (BVH_SPLIT_METHOD == 2) {
             if (TRIANGLE_TEST) {
-                if (node.triangleCount < SAH_PLANES) {
+                if (node.triangleCount <= SAH_PLANES) {
                     for (uint i = 0; i < node.triangleCount; i++) {
                         float candidatePos = centroids[node.index + i][a];
                         float cost = EvaluateSAH(node, a, candidatePos);
@@ -111,7 +119,7 @@ float FindBestSplitPlane(BVHNode& node, int& axis, float& splitPos) {
             }
         } else if (BVH_SPLIT_METHOD == 3) {
             if (TRIANGLE_TEST) {
-                if (node.triangleCount < SAH_BINS) {
+                if (node.triangleCount <= SAH_BINS) {
                     for (uint i = 0; i < node.triangleCount; i++) {
                         float candidatePos = centroids[node.index + i][a];
                         float cost = EvaluateSAH(node, a, candidatePos);
@@ -184,6 +192,8 @@ void subdivide(uint nodeIdx, uint depth) {
     // terminate recursion
     BVHNode node = bvhNodes[nodeIdx];
     if (node.triangleCount == 1 || depth >= MAX_INNER_NODES - 1) return;
+
+    bvhMaxDepth = max(bvhMaxDepth, depth+1);
 
     int axis;
     float splitPos;
