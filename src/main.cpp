@@ -47,6 +47,7 @@ vec3 cameraForward = vec3(-0.833459, -0.453337, -0.315961);
 mat3 cameraRotation = mat3(cameraRight, cameraUp, -cameraForward);
 // float fov = 39.5978;
 float fov = 90.0;
+float aspectRatio = 16.0f / 9.0f;
 
 int maxBounces = 5;
 int samples = 1;
@@ -212,6 +213,9 @@ int main() {
     std::vector<int> povBenchmarkAccumulatedFrames;
     bool fullscreenBenchmarks = false;
 
+    float aspectRatioX = 16.0;
+    float aspectRatioY = 9.0;
+
     while (!glfwWindowShouldClose(window)) {
         currentTime = glfwGetTime();
         deltaTime = currentTime - lastTime;
@@ -242,10 +246,29 @@ int main() {
                 wantCaptureKeyboard = io.WantCaptureKeyboard;
 
                 // Get the size of the child (i.e. the whole draw size of the windows).
-                ImVec2 wsize = ImGui::GetWindowSize();
-                if ((int)wsize.x != VIEWPORT_WIDTH || (int)wsize.y != VIEWPORT_HEIGHT) {
-                    VIEWPORT_WIDTH  = std::max(1, (int)wsize.x);
-                    VIEWPORT_HEIGHT = std::max(1, (int)wsize.y);
+                ImVec2 viewportSize = ImGui::GetContentRegionAvail();
+
+                int width;
+                int height;
+                if (viewportSize.x / viewportSize.y > aspectRatio) {
+                    height = std::max(1, (int)std::round(viewportSize.y));
+                    width  = std::max(1, (int)std::round(height * aspectRatio));
+
+                    float xPadding = (viewportSize.x - width) / 2;
+                    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + xPadding);
+                    ImGui::Image((ImTextureID)(intptr_t)displayTexture, ImVec2(width, viewportSize.y), ImVec2(0, 1), ImVec2(1, 0));
+                } else {
+                    width  = std::max(1, (int)std::round(viewportSize.x));
+                    height = std::max(1, (int)std::round(width / aspectRatio));
+
+                    float yPadding = (viewportSize.y - height) / 2;
+                    ImGui::SetCursorPosY(ImGui::GetCursorPosY() + yPadding);
+                    ImGui::Image((ImTextureID)(intptr_t)displayTexture, ImVec2(viewportSize.x, height), ImVec2(0, 1), ImVec2(1, 0));
+                }
+
+                if (width != VIEWPORT_WIDTH || height != VIEWPORT_HEIGHT) {
+                    VIEWPORT_WIDTH  = width;
+                    VIEWPORT_HEIGHT = height;
 
                     // Reallocate all FBO attachments
                     for (GLuint texture : textures) {
@@ -261,17 +284,14 @@ int main() {
                     // recreate your framebuffer textures here
                     currentFrame = 0;
                 }
-                // Because I use the texture from OpenGL, I need to invert the V from the UV.
-                ImGui::Image((ImTextureID)displayTexture, wsize, ImVec2(0, 1), ImVec2(1, 0));
+
                 ImGui::EndChild();
             }
             ImGui::End();
 
             ImGui::Begin("Options");
             {
-                ImGui::InputText("Import file path", &importFilePath);
-                ImGui::SameLine();
-                if (ImGui::Button("Import")) {
+                if (ImGui::InputText("Import file path", &importFilePath, ImGuiInputTextFlags_EnterReturnsTrue)) {
                     importAndSend(importFilePath.c_str());
                     currentFrame = 0;
                 }
@@ -322,6 +342,17 @@ int main() {
 
                 if (ImGui::DragFloat("Camera Horizontal FOV", &fov, 1.0, 1.0, 179.0))
                     currentFrame = 0;
+                ImGui::Text("Aspect Ratio");
+                ImGui::SameLine();
+                ImGui::SetNextItemWidth(50);
+                bool changedX = ImGui::DragFloat("##aspectRatioX", &aspectRatioX, 0.1);
+                ImGui::SameLine();
+                ImGui::SetNextItemWidth(50);
+                bool changedY = ImGui::DragFloat("##aspectRatioY", &aspectRatioY, 0.1);
+                if (changedX || changedY) {
+                    aspectRatio = aspectRatioX / aspectRatioY;
+                    currentFrame = 0;
+                }
             }
             ImGui::End();
 
