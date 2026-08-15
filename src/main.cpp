@@ -17,6 +17,7 @@
 #include "skybox.h"
 #include "glm/gtc/type_ptr.hpp"
 #include "stb_image/stb_image.h"
+#include "stb_image_write/stb_image_write.h"
 
 int WINDOW_WIDTH = 640;
 int WINDOW_HEIGHT = 480;
@@ -27,6 +28,8 @@ int VIEWPORT_HEIGHT = WINDOW_HEIGHT;
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
 void processInput(GLFWwindow *window, float dt);
+void saveScreenShot(const char* filePath);
+char* screenShotBuffer = nullptr;
 
 Shader pathtraceProgram;
 Shader displayProgram;
@@ -37,13 +40,13 @@ bool cameraRelativeMovement = false;
 bool cameraRelativeRotation = false;
 float MOVEMENT_SPEED = 1.0;
 float ROTATION_SPEED = 90.0;
-vec3 cameraPos = vec3(2.17881, 2.43326, 3.91674);
-float cameraPitch = -32.5058;
-float cameraYaw = -34.9385;
-float cameraRoll = 0.0;
-vec3 cameraRight = vec3(0.819768, 0, -0.572696);
-vec3 cameraUp = vec3(-0.307758, 0.843338, -0.44053);
-vec3 cameraForward = vec3(-0.482976, -0.537384, -0.691341);
+vec3 cameraPos = vec3(-0.665074, 1.72268, 3.39638);
+float cameraPitch = -16.1004;
+float cameraYaw = 16.9604;
+float cameraRoll = 0;
+vec3 cameraRight = vec3(0.956507, 0, 0.291711);
+vec3 cameraUp = vec3(0.0808977, 0.960777, -0.26526);
+vec3 cameraForward = vec3(0.280269, -0.277322, -0.91899);
 mat3 cameraRotation = mat3(cameraRight, cameraUp, -cameraForward);
 // float fov = 39.5978;
 float fov = 90.0;
@@ -82,6 +85,7 @@ bool displayDebug = false;
 
 int main() {
     stbi_set_flip_vertically_on_load(true);
+    stbi_flip_vertically_on_write(true);
 
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
@@ -156,8 +160,6 @@ int main() {
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-    // setSkyboxEquirectangular(RESOURCES_PATH "textures/rogland_clear_night_4k.png");
-
 
     glGenBuffers(1, &triangle_ssbo);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, triangle_ssbo);
@@ -167,6 +169,22 @@ int main() {
 
     glGenBuffers(1, &model_ssbo);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, model_ssbo);
+
+
+    // setSkyboxEquirectangular(RESOURCES_PATH "textures/rogland_clear_night_4k.png");
+    skyboxFormat = 3;
+
+    // importAndSend(RESOURCES_PATH "models/tests/CornellBox/CornellBox-Empty-CO.obj");
+    // importAndSend(RESOURCES_PATH "models/tests/CornellBox/CornellBox-Empty-RG.obj");
+    // importAndSend(RESOURCES_PATH "models/tests/CornellBox/CornellBox-Empty-Squashed.obj");
+    // importAndSend(RESOURCES_PATH "models/tests/CornellBox/CornellBox-Empty-White.obj");
+    // importAndSend(RESOURCES_PATH "models/tests/CornellBox/CornellBox-Glossy.glb");
+    // importAndSend(RESOURCES_PATH "models/tests/CornellBox/CornellBox-Glossy-Floor.obj");
+    // importAndSend(RESOURCES_PATH "models/tests/CornellBox/CornellBox-Mirror.obj");
+    importAndSend(RESOURCES_PATH "models/tests/CornellBox/CornellBox-Original.obj");
+    // importAndSend(RESOURCES_PATH "models/tests/CornellBox/CornellBox-Sphere.obj");
+    // importAndSend(RESOURCES_PATH "models/tests/CornellBox/CornellBox-Water.obj");
+    // importAndSend(RESOURCES_PATH "models/tests/CornellBox/water.obj");
 
 
     GLuint pathtracingFbo;
@@ -218,6 +236,9 @@ int main() {
     bool useAspectRatio = false;
     float aspectRatioX = 16.0;
     float aspectRatioY = 9.0;
+
+    bool takeScreenShot = false;
+    int screenShotSamples = 1;
 
     while (!glfwWindowShouldClose(window)) {
         currentTime = glfwGetTime();
@@ -308,6 +329,23 @@ int main() {
                     currentFrame = 0;
                 ImGui::SameLine();
                 ImGui::Checkbox("Accumulate", &accumulate);
+
+                ImGui::NewLine();
+
+                if (ImGui::Button("Take Screen Shot")) {
+                    takeScreenShot = true;
+                    fullscreenViewport = true;
+                    VIEWPORT_WIDTH = WINDOW_WIDTH;
+                    VIEWPORT_HEIGHT = WINDOW_HEIGHT;
+                    for (GLuint texture : textures) {
+                        glBindTexture(GL_TEXTURE_2D, texture);
+                        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, VIEWPORT_WIDTH, VIEWPORT_HEIGHT, 0, GL_RGBA, GL_FLOAT, nullptr);
+                    }
+                    currentFrame = 0;
+                    ImGui::End();
+                    continue;
+                }
+                ImGui::DragInt("Screen Shot Samples", &screenShotSamples, 1, 1, INT_MAX);
 
                 ImGui::NewLine();
 
@@ -601,11 +639,21 @@ int main() {
         if (rotationBenchmark || staticBenchmark || multiplePovBenchmark)
             glBeginQuery(GL_TIME_ELAPSED, query);
 
+        if (takeScreenShot && currentFrame > screenShotSamples) {
+            std::cout << "takeScreenShot" << std::endl;
+            std::cout << "frame: " << currentFrame << std::endl;
+            std::cout << "fullscreen: " << fullscreenViewport << std::endl;
+            saveScreenShot((std::string(RESOURCES_PATH "screenShots/Screen Shot At ") + std::to_string(screenShotSamples) + std::string(" Samples.png")).c_str());
+            takeScreenShot = false;
+            fullscreenViewport = false;
+            currentFrame = 0;
+        }
+
         glBindFramebuffer(GL_FRAMEBUFFER, pathtracingFbo);
         glViewport(0, 0, VIEWPORT_WIDTH, VIEWPORT_HEIGHT);
 
         GLuint currentFrameTexture = textures[currentFrame % 2];
-        GLuint lastFrameTexture = textures[1 - (currentFrame % 2)];
+        GLuint lastFrameTexture = textures[1 - currentFrame % 2];
 
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, currentFrameTexture, 0);
         if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
@@ -854,4 +902,12 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
         }
         currentFrame = 0;
     }
+}
+
+void saveScreenShot(const char* filePath) {
+    free(screenShotBuffer);
+    screenShotBuffer = (char*)malloc(VIEWPORT_WIDTH * VIEWPORT_HEIGHT * 4);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glReadPixels(0, 0, VIEWPORT_WIDTH, VIEWPORT_HEIGHT, GL_RGBA, GL_UNSIGNED_BYTE, screenShotBuffer);
+    stbi_write_png(filePath, VIEWPORT_WIDTH, VIEWPORT_HEIGHT, 4, screenShotBuffer, 0);
 }

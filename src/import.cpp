@@ -57,6 +57,8 @@ void processNode(aiNode* node, const aiScene* scene, const char* filePath) {
 }
 
 void processMesh(aiMesh* mesh, const aiScene* scene, const char* filePath) {
+    std::cout << "mesh" << std::endl;
+
     std::vector<vec3> positions;
     std::vector<vec3> normals;
     std::vector<vec2> uvs;
@@ -93,6 +95,7 @@ void processMesh(aiMesh* mesh, const aiScene* scene, const char* filePath) {
         });
     }
     uint triangleCount = triangles.size() - triangleIndex;
+    std::cout << "triangle count: " << triangleCount << std::endl;
 
     uint bvhNodeIndex = bvhNodes.size();
 
@@ -115,7 +118,18 @@ void processMesh(aiMesh* mesh, const aiScene* scene, const char* filePath) {
         mat4(1.0),
         material
     };
-    models.push_back(model);
+    if (material.emissionStrength > 0.0) {
+        // std::cout << "aaa " <<models.size() << std::endl;
+        models.insert(models.begin() + nextLightIndex, model);
+        nextLightIndex++;
+        // std::cout << models.size() << std::endl;
+        // std::cout << "Light!" << std::endl;
+        // std::cout << std::endl;
+    } else {
+        models.push_back(model);
+        // std::cout << "Not Light!" << std::endl;
+        // std::cout << std::endl;
+    }
 }
 
 Material getMeshMaterial(aiMesh* mesh, const aiScene* scene, const char* filePath) {
@@ -132,6 +146,10 @@ Material getMeshMaterial(aiMesh* mesh, const aiScene* scene, const char* filePat
 
     float emissionStrength = 0.0;
     mat->Get(AI_MATKEY_EMISSIVE_INTENSITY, emissionStrength);
+    if (emissionColour.r > 0.0 && emissionColour.g > 0.0 && emissionColour.b > 0.0 && emissionStrength == 0.0) {
+        emissionStrength = max(max(emissionColour.r, emissionColour.g), emissionColour.b);
+        emissionColour = aiColor3D(emissionColour.r / emissionStrength, emissionColour.g / emissionStrength, emissionColour.b / emissionStrength);
+    }
 
     float roughness = 1.0;
     mat->Get(AI_MATKEY_ROUGHNESS_FACTOR, roughness);

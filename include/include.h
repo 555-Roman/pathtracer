@@ -137,6 +137,7 @@ inline std::vector<Triangle> triangles;
 inline GLuint triangle_ssbo;
 inline std::vector<BVHNode> bvhNodes;
 inline GLuint bvhNode_ssbo;
+inline uint nextLightIndex = 0;
 inline std::vector<Model> models;
 inline std::vector<GPU_Model> gpuModels;
 inline GLuint model_ssbo;

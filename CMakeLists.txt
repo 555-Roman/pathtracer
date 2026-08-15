@@ -39,6 +39,7 @@ add_subdirectory(thirdParty/glfw-3.4)
 add_subdirectory(thirdParty/glad)
 add_subdirectory(thirdParty/glm-1.0.3)
 add_subdirectory(thirdParty/stb_image)
+add_subdirectory(thirdParty/stb_image_write)
 add_subdirectory(thirdParty/assimp)
 add_subdirectory(thirdParty/imgui-docking)
 
@@ -78,4 +79,4 @@ endif()
 target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include/")
 
 
-target_link_libraries("${CMAKE_PROJECT_NAME}" PRIVATE glfw glad glm stb_image assimp imgui)
+target_link_libraries("${CMAKE_PROJECT_NAME}" PRIVATE glfw glad glm stb_image stb_image_write assimp imgui)
