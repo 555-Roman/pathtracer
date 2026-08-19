@@ -670,6 +670,7 @@ int main() {
         pathtraceProgram.setUniform1f("fov", fov);
 
         pathtraceProgram.setUniform1ui("modelCount", gpuModels.size());
+        pathtraceProgram.setUniform1ui("lightCount", nextLightIndex);
 
         pathtraceProgram.setUniform1i("maxBounces", maxBounces);
         pathtraceProgram.setUniform1i("samples", samples);

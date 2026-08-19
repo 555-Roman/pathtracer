@@ -53,7 +53,9 @@ struct BVHNode {
 
 struct Model {
     uint bvhNodeIndex;
-    uint padding[3];
+    uint triangleIndex;
+    uint triangleCount;
+    uint padding;
 
     Material material;
 
@@ -68,6 +70,7 @@ struct HitRecord {
     vec3 geometryNormal;
     vec3 interpolatedNormal;
     vec2 uv;
+    uint triangleIdx;
     Material material;
 };
 
@@ -80,16 +83,12 @@ layout (std430, binding = 1) buffer BVHNodeBuffer {
 };
 
 uniform uint modelCount;
+uniform uint lightCount;
 layout (std430, binding = 2) buffer ModelBuffer {
     Model models[];
 };
 
 vec3 debugColour = vec3(0.0);
-
-vec3 safeNormalize(vec3 vector, vec3 fallback) {
-    vec3 normalized = normalize(vector);
-    return vector == vec3(0.0) ? fallback : normalized;
-}
 
 uint rngState;
 float randomUniform() {
@@ -98,10 +97,24 @@ float randomUniform() {
     result = (result >> 22u) ^ result;
     return result / 4294967294.0;
 }
+float randomNormal() {
+    float theta = 2 * 3.1415926 * randomUniform();
+    float rho = sqrt(-2 * log(randomUniform()));
+    return rho * cos(theta);
+}
+vec3 randomSphere() {
+    float x = randomNormal();
+    float y = randomNormal();
+    float z = randomNormal();
+
+    return normalize(vec3(x, y, z));
+}
 vec3 sampleCosineHemisphere(vec3 wi) {
     float phi = 2.0f * 3.1415926 * randomUniform();
 
     float z = sqrt(randomUniform());
+//    float z = randomUniform();
+
     if (wi.z < 0.0) z = -z;
     float sinTheta = sqrt(clamp(1.0f - z * z, 0.0f, 1.0f));
     float x = sinTheta * cos(phi);
@@ -198,6 +211,7 @@ HitRecord intersectBVH(Ray ray, uint rootIdx, float tMax, Material material) {
                 if (record.hit && record.t < closestT) {
                     debugColour.g = i;
                     closestRecord = record;
+                    closestRecord.triangleIdx = i;
                     closestT = record.t;
                 }
             }
@@ -420,33 +434,33 @@ void sampleOutgoingReflection(inout Ray ray, HitRecord record, out vec3 rayTint)
 
     vec3 woTangent;
     bool woOutside;
-    if (randomUniform() < metalness) {
-        woTangent = reflectBetter(wiTangent, microfacetNormal);
-        if (!sameHemisphere(wiTangent, woTangent)) return;
-        woOutside = true;
-        if (material.complexN == vec3(0.0))
-            rayTint = schlickFresnel(wiTangent, microfacetNormal, 1.0, material.ior, albedo);
-        else
-            rayTint = fresnelConductor(wiTangent, microfacetNormal, 1.0, material.complexN, material.complexK);
-    } else {
-        if (randomUniform() < reflectionFraction) {
-            woTangent = reflectBetter(wiTangent, microfacetNormal);
-            if (!sameHemisphere(wiTangent, woTangent)) return;
-            woOutside = true;
-            rayTint = vec3(1.0);
-        } else {
-            if (randomUniform() < transmission) {
-                woTangent = refractBetter(wiTangent, microfacetNormal, 1.0, material.ior);
-                if (sameHemisphere(wiTangent, woTangent)) return;
-                woOutside = false;
-                rayTint = albedo;
-            } else {
+//    if (randomUniform() < metalness) {
+//        woTangent = reflectBetter(wiTangent, microfacetNormal);
+//        if (!sameHemisphere(wiTangent, woTangent)) return;
+//        woOutside = true;
+//        if (material.complexN == vec3(0.0))
+//            rayTint = schlickFresnel(wiTangent, microfacetNormal, 1.0, material.ior, albedo);
+//        else
+//            rayTint = fresnelConductor(wiTangent, microfacetNormal, 1.0, material.complexN, material.complexK);
+//    } else {
+//        if (randomUniform() < reflectionFraction) {
+//            woTangent = reflectBetter(wiTangent, microfacetNormal);
+//            if (!sameHemisphere(wiTangent, woTangent)) return;
+//            woOutside = true;
+//            rayTint = vec3(1.0);
+//        } else {
+//            if (randomUniform() < transmission) {
+//                woTangent = refractBetter(wiTangent, microfacetNormal, 1.0, material.ior);
+//                if (sameHemisphere(wiTangent, woTangent)) return;
+//                woOutside = false;
+//                rayTint = albedo;
+//            } else {
                 woTangent = sampleCosineHemisphere(wiTangent);
                 woOutside = true;
                 rayTint = albedo;
-            }
-        }
-    }
+//            }
+//        }
+//    }
     woOutside = woOutside == (dot(wiWorld, record.geometryNormal) >= 0.0);
 
     vec3 woWorld = normalize(woTangent.x * T + woTangent.y * B + woTangent.z * N);
@@ -463,6 +477,17 @@ void sampleOutgoingReflection(inout Ray ray, HitRecord record, out vec3 rayTint)
     ray.dir = woWorld;
 }
 
+vec3 bsdfF(vec3 wo, vec3 wp, HitRecord record) {
+    vec3 N = record.interpolatedNormal;
+    vec3 T, B;
+    frisvad(N, T, B);
+    vec3 woLocal = normalize(vec3(dot(wo, T), dot(wo, B), dot(wo, N)));
+    vec3 wpLocal = normalize(vec3(dot(wp, T), dot(wp, B), dot(wp, N)));
+
+    if (!sameHemisphere(woLocal, wpLocal)) return vec3(0.0);
+    return vec3(record.material.albedo) / 3.1415926;
+}
+
 uniform uint displayDebug;
 
 uniform int maxBounces;
@@ -475,18 +500,25 @@ vec3 trace(Ray cameraRay) {
         HitRecord record = intersectScene(ray);
         if (displayDebug > 0)
             return record.interpolatedNormal;
-
-        if (record.hit) {
-            vec3 rayTint;
-            sampleOutgoingReflection(ray, record, rayTint);
-
-            incomingLight += (record.material.emissionColour * record.material.emissionStrength) * rayColour;
-            rayColour *= rayTint;
-            if (rayColour == vec3(0.0)) break;
-        } else {
+        if (!record.hit) {
             incomingLight += getSkybox(ray) * rayColour;
             break;
         }
+
+
+        vec3 wo = -ray.dir;
+        vec3 Le = record.material.emissionColour * record.material.emissionStrength;
+
+        vec3 wp = randomSphere();
+
+        vec3 fcos = bsdfF(wo, wp, record) * abs(dot(wp, record.interpolatedNormal));
+
+        incomingLight += Le * rayColour;
+        rayColour *= fcos / (1.0 / (4.0 * 3.1415926));
+        if (rayColour == vec3(0.0)) break;
+
+        ray.origin = record.pos + wp * 0.001;
+        ray.dir = wp;
     }
 
     return incomingLight;
@@ -540,5 +572,6 @@ void main() {
         FragColor = turbo_color_map(debugColour.r / debugMaxTriangleIntersections + debugColour.b / debugMaxAABBIntersections);
 //        FragColor = vec4(debugColour.r / debugMaxTriangleIntersections, 0.0, debugColour.b / debugMaxAABBIntersections, 1.0);
 //        if (max(FragColor.r, FragColor.b) > 1.0) FragColor = vec4(1.0);
+//        FragColor = vec4(debugColour, 1.0);
     }
 }

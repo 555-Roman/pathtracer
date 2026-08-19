@@ -85,7 +85,9 @@ struct BVHNode {
 
 struct GPU_Model {
     uint bvhNodeIndex;
-    uint padding[3];
+    uint triangleIndex;
+    uint triangleCount;
+    uint padding;
 
     Material material;
 
@@ -95,6 +97,8 @@ struct GPU_Model {
 
 struct Model {
     uint bvhNodeIndex = 0;
+    uint triangleIndex = 0;
+    uint triangleCount = 0;
 
     vec3 translation = vec3(0.0);
     vec3 rotation = vec3(0.0);
@@ -122,6 +126,8 @@ struct Model {
         GPU_Model result{};
 
         result.bvhNodeIndex = bvhNodeIndex;
+        result.triangleIndex = triangleIndex;
+        result.triangleCount = triangleCount;
 
         result.material = material;
 

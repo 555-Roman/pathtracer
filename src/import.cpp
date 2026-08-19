@@ -111,6 +111,8 @@ void processMesh(aiMesh* mesh, const aiScene* scene, const char* filePath) {
     Material material = getMeshMaterial(mesh, scene, filePath);
     Model model = {
         bvhNodeIndex,
+        triangleIndex,
+        triangleCount,
         vec3(0.0),
         vec3(0.0),
         vec3(1.0),
