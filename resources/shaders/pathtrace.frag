@@ -112,8 +112,8 @@ vec3 randomSphere() {
 vec3 sampleCosineHemisphere(vec3 wi) {
     float phi = 2.0f * 3.1415926 * randomUniform();
 
-    float z = sqrt(randomUniform());
-//    float z = randomUniform();
+//    float z = sqrt(randomUniform());
+    float z = randomUniform();
 
     if (wi.z < 0.0) z = -z;
     float sinTheta = sqrt(clamp(1.0f - z * z, 0.0f, 1.0f));
@@ -477,15 +477,75 @@ void sampleOutgoingReflection(inout Ray ray, HitRecord record, out vec3 rayTint)
     ray.dir = woWorld;
 }
 
-vec3 bsdfF(vec3 wo, vec3 wp, HitRecord record) {
+float ggxD(vec3 wm, vec2 alpha) {
+    float cos2Theta = wm.z * wm.z;
+    float sin2Theta = max(0.0, 1.0 - cos2Theta);
+    float tan2Theta = sin2Theta / cos2Theta;
+    if (isinf(tan2Theta)) return 0.0;
+
+    float cos4Theta = cos2Theta * cos2Theta;
+
+    float sinTheta = sqrt(sin2Theta);
+    float cosPhi = (sinTheta == 0.0) ? 1.0 : clamp(wm.x / sinTheta, -1.0, 1.0);
+    float sinPhi = (sinTheta == 0.0) ? 0.0 : clamp(wm.y / sinTheta, -1.0, 1.0);
+
+    float e = tan2Theta * ((cosPhi / alpha.x) * (cosPhi / alpha.x) + (sinPhi / alpha.y) * (sinPhi / alpha.y));
+    return 1.0 / (3.1415926 * alpha.x * alpha.y * cos4Theta * (1.0 + e) * (1.0 + e));
+}
+
+float ggxLambda(vec3 w, vec2 alpha) {
+    float cos2Theta = w.z * w.z;
+    float sin2Theta = max(0.0, 1.0 - cos2Theta);
+    float tan2Theta = sin2Theta / cos2Theta;
+    if (isinf(tan2Theta)) return 0.0;
+
+    float sinTheta = sqrt(sin2Theta);
+    float cosPhi = (sinTheta == 0.0) ? 1.0 : clamp(w.x / sinTheta, -1.0, 1.0);
+    float sinPhi = (sinTheta == 0.0) ? 0.0 : clamp(w.y / sinTheta, -1.0, 1.0);
+
+    float alpha2 = ((cosPhi * alpha.x) * (cosPhi * alpha.x) + (sinPhi * alpha.y) * (sinPhi * alpha.y));
+    return (sqrt(1 + alpha2 * tan2Theta) - 1.0) / 2.0;
+}
+
+float ggxG(vec3 wo, vec3 wi, vec2 alpha) {
+    return 1 / (1 + ggxLambda(wo, alpha) + ggxLambda(wi, alpha));
+}
+
+vec3 diffuse_f(vec3 wo, vec3 wp, Material material) {
+    if (!sameHemisphere(wo, wp)) return vec3(0.0);
+    return vec3(material.albedo) / 3.1415926;
+}
+
+vec3 ggx_f(vec3 wo, vec3 wp, Material material) {
+    if (!sameHemisphere(wo, wp)) return vec3(0.0);
+    if (material.roughness < 0.001) return vec3(0.0);
+
+    float cosTheta_o = abs(wo.z);
+    float cosTheta_i = abs(wp.z);
+    if (cosTheta_i == 0 || cosTheta_o == 0) return vec3(0.0);
+    vec3 wm = wp + wo;
+    if (dot(wm, wm) == 0) return vec3(0.0);
+    wm = normalize(wm);
+
+    vec3 reflectionTint;
+    if (material.complexN == vec3(0.0))
+        reflectionTint = schlickFresnel(wo, wm, 1.0, material.ior, material.albedo);
+    else
+        reflectionTint = fresnelConductor(wo, wm, 1.0, material.complexN, material.complexK);
+
+    vec2 alpha = pow(vec2(material.roughness), vec2(2.0));
+    return ggxD(wm, alpha) * reflectionTint * ggxG(wo, wp, alpha) / (4 * cosTheta_i * cosTheta_o);
+}
+
+vec3 bsdf_f(vec3 wo, vec3 wp, HitRecord record) {
     vec3 N = record.interpolatedNormal;
     vec3 T, B;
     frisvad(N, T, B);
     vec3 woLocal = normalize(vec3(dot(wo, T), dot(wo, B), dot(wo, N)));
     vec3 wpLocal = normalize(vec3(dot(wp, T), dot(wp, B), dot(wp, N)));
 
-    if (!sameHemisphere(woLocal, wpLocal)) return vec3(0.0);
-    return vec3(record.material.albedo) / 3.1415926;
+//    return diffuse_f(woLocal, wpLocal, record.material);
+    return ggx_f(woLocal, wpLocal, record.material);
 }
 
 uniform uint displayDebug;
@@ -510,11 +570,12 @@ vec3 trace(Ray cameraRay) {
         vec3 Le = record.material.emissionColour * record.material.emissionStrength;
 
         vec3 wp = randomSphere();
+        float wpPdf = 1.0 / (4.0 * 3.1415926);
 
-        vec3 fcos = bsdfF(wo, wp, record) * abs(dot(wp, record.interpolatedNormal));
+        vec3 fcos = bsdf_f(wo, wp, record) * abs(dot(wp, record.interpolatedNormal));
 
         incomingLight += Le * rayColour;
-        rayColour *= fcos / (1.0 / (4.0 * 3.1415926));
+        rayColour *= fcos / wpPdf;
         if (rayColour == vec3(0.0)) break;
 
         ray.origin = record.pos + wp * 0.001;

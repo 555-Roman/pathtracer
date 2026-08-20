@@ -40,13 +40,23 @@ bool cameraRelativeMovement = false;
 bool cameraRelativeRotation = false;
 float MOVEMENT_SPEED = 1.0;
 float ROTATION_SPEED = 90.0;
-vec3 cameraPos = vec3(-0.665074, 1.72268, 3.39638);
-float cameraPitch = -16.1004;
-float cameraYaw = 16.9604;
+
+// vec3 cameraPos = vec3(-0.665074, 1.72268, 3.39638);
+// float cameraPitch = -16.1004;
+// float cameraYaw = 16.9604;
+// float cameraRoll = 0;
+// vec3 cameraRight = vec3(0.956507, 0, 0.291711);
+// vec3 cameraUp = vec3(0.0808977, 0.960777, -0.26526);
+// vec3 cameraForward = vec3(0.280269, -0.277322, -0.91899);
+
+vec3 cameraPos = vec3(0, 1, 4);
+float cameraPitch = 0;
+float cameraYaw = 0;
 float cameraRoll = 0;
-vec3 cameraRight = vec3(0.956507, 0, 0.291711);
-vec3 cameraUp = vec3(0.0808977, 0.960777, -0.26526);
-vec3 cameraForward = vec3(0.280269, -0.277322, -0.91899);
+vec3 cameraRight = vec3(1, 0, 0);
+vec3 cameraUp = vec3(0, 1, 0);
+vec3 cameraForward = vec3(0, 0, -1);
+
 mat3 cameraRotation = mat3(cameraRight, cameraUp, -cameraForward);
 // float fov = 39.5978;
 float fov = 90.0;
@@ -174,17 +184,9 @@ int main() {
     // setSkyboxEquirectangular(RESOURCES_PATH "textures/rogland_clear_night_4k.png");
     skyboxFormat = 3;
 
-    // importAndSend(RESOURCES_PATH "models/tests/CornellBox/CornellBox-Empty-CO.obj");
-    // importAndSend(RESOURCES_PATH "models/tests/CornellBox/CornellBox-Empty-RG.obj");
-    // importAndSend(RESOURCES_PATH "models/tests/CornellBox/CornellBox-Empty-Squashed.obj");
-    // importAndSend(RESOURCES_PATH "models/tests/CornellBox/CornellBox-Empty-White.obj");
-    // importAndSend(RESOURCES_PATH "models/tests/CornellBox/CornellBox-Glossy.glb");
-    // importAndSend(RESOURCES_PATH "models/tests/CornellBox/CornellBox-Glossy-Floor.obj");
-    // importAndSend(RESOURCES_PATH "models/tests/CornellBox/CornellBox-Mirror.obj");
-    importAndSend(RESOURCES_PATH "models/tests/CornellBox/CornellBox-Original.obj");
-    // importAndSend(RESOURCES_PATH "models/tests/CornellBox/CornellBox-Sphere.obj");
-    // importAndSend(RESOURCES_PATH "models/tests/CornellBox/CornellBox-Water.obj");
-    // importAndSend(RESOURCES_PATH "models/tests/CornellBox/water.obj");
+    // importAndSend(RESOURCES_PATH "models/tests/CornellBox/CornellBox-Original.obj");
+
+    importAndSend(RESOURCES_PATH "models/tests/mis spheres.glb");
 
 
     GLuint pathtracingFbo;
@@ -225,7 +227,7 @@ int main() {
     std::string importFilePath;
     float debugMaxTriangleIntersections = 34.0;
     float debugMaxAABBIntersections = 340.0;
-    bool accumulate = false;
+    bool accumulate = true;
 
     int selectedModelIndex = -1;
 
@@ -443,6 +445,13 @@ int main() {
                         aspectRatio = aspectRatioX / aspectRatioY;
                         currentFrame = 0;
                     }
+                }
+
+                ImGui::NewLine();
+
+                if (ImGui::InputInt("Skybox Format", (int*)&skyboxFormat)) {
+                    skyboxFormat = clamp(skyboxFormat, 0u, 3u);
+                    currentFrame = 0;
                 }
             }
             ImGui::End();
