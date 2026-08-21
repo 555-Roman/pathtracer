@@ -516,25 +516,50 @@ vec3 diffuse_f(vec3 wo, vec3 wp, Material material) {
     return vec3(material.albedo) / 3.1415926;
 }
 
-vec3 ggx_f(vec3 wo, vec3 wp, Material material) {
-    if (!sameHemisphere(wo, wp)) return vec3(0.0);
+vec3 reflective_f(vec3 wo, vec3 wi, Material material) {
+    if (!sameHemisphere(wo, wi)) return vec3(0.0);
     if (material.roughness < 0.001) return vec3(0.0);
 
+    vec2 alpha = pow(vec2(material.roughness), vec2(2.0));
+
     float cosTheta_o = abs(wo.z);
-    float cosTheta_i = abs(wp.z);
+    float cosTheta_i = abs(wi.z);
     if (cosTheta_i == 0 || cosTheta_o == 0) return vec3(0.0);
-    vec3 wm = wp + wo;
+    vec3 wm = wi + wo;
+    if (dot(wm, wm) == 0) return vec3(0.0);
+    wm = normalize(wm);
+
+    float reflectedFraction = fresnelReflection(wo, wm, 1.0, material.ior);
+
+    return vec3(ggxD(wm, alpha) * reflectedFraction * ggxG(wo, wi, alpha) / (4 * cosTheta_i * cosTheta_o));
+}
+
+vec3 dielectric_f(vec3 wo, vec3 wi, Material material) {
+    if (material.roughness < 0.001) return vec3(0.0);
+
+    return reflective_f(wo, wi, material) + diffuse_f(wo, wi, material);
+}
+
+vec3 conductor_f(vec3 wo, vec3 wi, Material material) {
+    if (!sameHemisphere(wo, wi)) return vec3(0.0);
+    if (material.roughness < 0.001) return vec3(0.0);
+
+    vec2 alpha = pow(vec2(material.roughness), vec2(2.0));
+
+    float cosTheta_o = abs(wo.z);
+    float cosTheta_i = abs(wi.z);
+    if (cosTheta_i == 0 || cosTheta_o == 0) return vec3(0.0);
+    vec3 wm = wi + wo;
     if (dot(wm, wm) == 0) return vec3(0.0);
     wm = normalize(wm);
 
     vec3 reflectionTint;
     if (material.complexN == vec3(0.0))
-        reflectionTint = schlickFresnel(wo, wm, 1.0, material.ior, material.albedo);
+    reflectionTint = schlickFresnel(wo, wm, 1.0, material.ior, material.albedo);
     else
-        reflectionTint = fresnelConductor(wo, wm, 1.0, material.complexN, material.complexK);
+    reflectionTint = fresnelConductor(wo, wm, 1.0, material.complexN, material.complexK);
 
-    vec2 alpha = pow(vec2(material.roughness), vec2(2.0));
-    return ggxD(wm, alpha) * reflectionTint * ggxG(wo, wp, alpha) / (4 * cosTheta_i * cosTheta_o);
+    return ggxD(wm, alpha) * reflectionTint * ggxG(wo, wi, alpha) / (4 * cosTheta_i * cosTheta_o);
 }
 
 vec3 bsdf_f(vec3 wo, vec3 wp, HitRecord record) {
@@ -544,8 +569,12 @@ vec3 bsdf_f(vec3 wo, vec3 wp, HitRecord record) {
     vec3 woLocal = normalize(vec3(dot(wo, T), dot(wo, B), dot(wo, N)));
     vec3 wpLocal = normalize(vec3(dot(wp, T), dot(wp, B), dot(wp, N)));
 
-//    return diffuse_f(woLocal, wpLocal, record.material);
-    return ggx_f(woLocal, wpLocal, record.material);
+    if (record.material.emissionStrength > 0.0) return vec3(0.0);
+    return mix(
+        dielectric_f(woLocal, wpLocal, record.material),
+        conductor_f(woLocal, wpLocal, record.material),
+        record.material.metalness
+    );
 }
 
 uniform uint displayDebug;

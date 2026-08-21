@@ -185,9 +185,12 @@ int main() {
     skyboxFormat = 3;
 
     // importAndSend(RESOURCES_PATH "models/tests/CornellBox/CornellBox-Original.obj");
+    // importAndSend(RESOURCES_PATH "models/tests/mis spheres.glb");
+    // importAndSend(RESOURCES_PATH "models/tests/everything.glb");
 
-    importAndSend(RESOURCES_PATH "models/tests/mis spheres.glb");
-
+    importAndSend(RESOURCES_PATH "models/tests/roughness.glb");
+    models[1].material.albedo = vec3(1.0);
+    sendModel(1);
 
     GLuint pathtracingFbo;
     glGenFramebuffers(1, &pathtracingFbo);
