@@ -49,13 +49,21 @@ float ROTATION_SPEED = 90.0;
 // vec3 cameraUp = vec3(0.0808977, 0.960777, -0.26526);
 // vec3 cameraForward = vec3(0.280269, -0.277322, -0.91899);
 
-vec3 cameraPos = vec3(0, 1, 4);
-float cameraPitch = 0;
-float cameraYaw = 0;
+// vec3 cameraPos = vec3(0, 1, 4);
+// float cameraPitch = 0;
+// float cameraYaw = 0;
+// float cameraRoll = 0;
+// vec3 cameraRight = vec3(1, 0, 0);
+// vec3 cameraUp = vec3(0, 1, 0);
+// vec3 cameraForward = vec3(0, 0, -1);
+
+vec3 cameraPos = vec3(-1.26427, 0.937832, -0.0606194);
+float cameraPitch = -11.0732;
+float cameraYaw = 77.8304;
 float cameraRoll = 0;
-vec3 cameraRight = vec3(1, 0, 0);
-vec3 cameraUp = vec3(0, 1, 0);
-vec3 cameraForward = vec3(0, 0, -1);
+vec3 cameraRight = vec3(0.210806, 0, 0.977528);
+vec3 cameraUp = vec3(0.187747, 0.981383, -0.0404881);
+vec3 cameraForward = vec3(0.959329, -0.192063, -0.206882);
 
 mat3 cameraRotation = mat3(cameraRight, cameraUp, -cameraForward);
 // float fov = 39.5978;
@@ -186,11 +194,9 @@ int main() {
 
     // importAndSend(RESOURCES_PATH "models/tests/CornellBox/CornellBox-Original.obj");
     // importAndSend(RESOURCES_PATH "models/tests/mis spheres.glb");
-    // importAndSend(RESOURCES_PATH "models/tests/everything.glb");
-
-    importAndSend(RESOURCES_PATH "models/tests/roughness.glb");
-    models[1].material.albedo = vec3(1.0);
-    sendModel(1);
+    importAndSend(RESOURCES_PATH "models/tests/everything.glb");
+    // importAndSend(RESOURCES_PATH "models/tests/roughness.glb");
+    // importAndSend(RESOURCES_PATH "models/tests/refraction.glb");
 
     GLuint pathtracingFbo;
     glGenFramebuffers(1, &pathtracingFbo);
