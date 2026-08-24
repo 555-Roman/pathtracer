@@ -101,6 +101,13 @@ layout (std430, binding = 2) buffer ModelBuffer {
     Model models[];
 };
 
+struct BsdfSample {
+    vec3 wi;
+    vec3 f;
+    float p;
+    bool smoothBounce;
+};
+
 vec3 debugColour = vec3(0.0);
 
 uint rngState;
@@ -122,13 +129,12 @@ vec3 randomSphere() {
 
     return normalize(vec3(x, y, z));
 }
-vec3 sampleCosineHemisphere(vec3 wi) {
+vec3 sampleCosineHemisphere(vec3 wo) {
     float phi = 2.0f * 3.1415926 * randomUniform();
 
-//    float z = sqrt(randomUniform());
-    float z = randomUniform();
+    float z = sqrt(randomUniform());
 
-    if (wi.z < 0.0) z = -z;
+    if (wo.z < 0.0) z = -z;
     float sinTheta = sqrt(clamp(1.0f - z * z, 0.0f, 1.0f));
     float x = sinTheta * cos(phi);
     float y = sinTheta * sin(phi);
@@ -363,8 +369,7 @@ vec3 sampleGgxVndfHemisphere(vec3 wi) {
 }
 
 vec3 sampleGgxVndfNormal(vec3 wi, vec2 alpha) {
-    if (alpha.x < 0.001 && alpha.y < 0.001) return vec3(0.0, 0.0, 1.0);
-    if (wi.z < 0.0) wi = -wi;
+    if (wi.z < 0.0) wi.z = -wi.z;
     vec3 wiStd = normalize(vec3(wi.xy * alpha, wi.z));
     vec3 wmStd = sampleGgxVndfHemisphere(wiStd);
     vec3 wm = normalize(vec3(wmStd.xy * alpha, wmStd.z));
@@ -517,11 +522,23 @@ float ggxLambda(vec3 w, vec2 alpha) {
     float sinPhi = (sinTheta == 0.0) ? 0.0 : clamp(w.y / sinTheta, -1.0, 1.0);
 
     float alpha2 = ((cosPhi * alpha.x) * (cosPhi * alpha.x) + (sinPhi * alpha.y) * (sinPhi * alpha.y));
-    return (sqrt(1 + alpha2 * tan2Theta) - 1.0) / 2.0;
+    return (sqrt(1.0 + alpha2 * tan2Theta) - 1.0) / 2.0;
 }
 
 float ggxG(vec3 wo, vec3 wi, vec2 alpha) {
-    return 1 / (1 + ggxLambda(wo, alpha) + ggxLambda(wi, alpha));
+    return 1.0 / (1.0 + ggxLambda(wo, alpha) + ggxLambda(wi, alpha));
+}
+
+float ggxG1(vec3 w, vec2 alpha) {
+    return 1.0 / (1.0 + ggxLambda(w, alpha));
+}
+
+float ggxD(vec3 w, vec3 wm, vec2 alpha) {
+    return ggxG1(w, alpha) / abs(w.z) * ggxD(wm, alpha) * abs(dot(w, wm));
+}
+
+float ggxPDF(vec3 w, vec3 wm, vec2 alpha) {
+    return ggxD(w, wm, alpha);
 }
 
 vec3 diffuse_f(vec3 wo, vec3 wi, UsefulMaterial material) {
@@ -632,28 +649,68 @@ UsefulMaterial getMaterial(HitRecord record) {
     if (uvec2(material.normalTextureHandle) != uvec2(0))
         useful.shadingNormal = normalize(texture(material.normalTextureHandle, record.uv).rgb * 2.0 - 1.0);
 
-    return useful;
-}
-
-vec3 bsdf_f(vec3 wo, vec3 wp, HitRecord record) {
-    UsefulMaterial mat = getMaterial(record);
-
     vec3 N = record.interpolatedNormal;
     vec3 T, B;
     frisvad(N, T, B);
-    if (mat.shadingNormal != vec3(0.0, 0.0, 1.0)) {
-        N = normalize(mat.shadingNormal.x * T + mat.shadingNormal.y * B + mat.shadingNormal.z * N);
-        frisvad(N, T, B);
-    }
-    vec3 woLocal = normalize(vec3(dot(wo, T), dot(wo, B), dot(wo, N)));
-    vec3 wpLocal = normalize(vec3(dot(wp, T), dot(wp, B), dot(wp, N)));
+    N = normalize(useful.shadingNormal.x * T + useful.shadingNormal.y * B + useful.shadingNormal.z * N);
+    useful.shadingNormal = N;
 
-    if (mat.emissionStrength > 0.0) return vec3(0.0);
+    return useful;
+}
+
+vec3 bsdf_f(vec3 wo, vec3 wp, UsefulMaterial material) {
     return mix(
-        dielectric_f(woLocal, wpLocal, mat),
-        conductor_f(woLocal, wpLocal, mat),
-        mat.metalness
+        dielectric_f(wo, wp, material),
+        conductor_f(wo, wp, material),
+        material.metalness
     );
+}
+
+BsdfSample diffuse_sample_f(vec3 wo, UsefulMaterial material) {
+    vec3 wi = sampleCosineHemisphere(wo);
+    float pdf = wi.z / 3.1415926;
+    vec3 f = material.albedo / 3.1415926;
+
+    return BsdfSample(wi, f, pdf, false);
+}
+
+BsdfSample conductor_sample_f(vec3 wo, UsefulMaterial material) {
+    if (max(material.roughness.x, material.roughness.y) < 0.001) {
+        vec3 wi = vec3(-wo.x, -wo.y, wo.z);
+
+        vec3 reflectionTint;
+        if (material.complexN == vec3(0.0))
+            reflectionTint = schlickFresnel(wo, vec3(0.0, 0.0, 1.0), 1.0, material.ior, material.albedo);
+        else
+            reflectionTint = fresnelConductor(wo, vec3(0.0, 0.0, 1.0), 1.0, material.complexN, material.complexK);
+
+        return BsdfSample(wi, reflectionTint / abs(wi.z), 1, true);
+    }
+
+    vec3 wm = sampleGgxVndfNormal(wo, material.roughness);
+    vec3 wi = reflectBetter(wo, wm);
+    if (!sameHemisphere(wo, wi)) return BsdfSample(vec3(0.0), vec3(0.0), 0.0, false);
+
+    float pdf = ggxPDF(wo, wm, material.roughness) / (4 * abs(dot(wo, wm)));
+
+    float cosTheta_o = abs(wo.z), cosTheta_i = abs(wi.z);
+
+    vec3 reflectionTint;
+    if (material.complexN == vec3(0.0))
+        reflectionTint = schlickFresnel(wo, wm, 1.0, material.ior, material.albedo);
+    else
+        reflectionTint = fresnelConductor(wo, wm, 1.0, material.complexN, material.complexK);
+
+    vec3 f = ggxD(wm, material.roughness) * reflectionTint * ggxG(wo, wi, material.roughness) / (4 * cosTheta_i * cosTheta_o);
+
+    return BsdfSample(wi, f, pdf, false);
+}
+
+BsdfSample bsdf_sample_f(vec3 wo, UsefulMaterial material) {
+    if (randomUniform() < material.metalness) {
+        return conductor_sample_f(wo, material);
+    }
+    return diffuse_sample_f(wo, material);
 }
 
 uniform uint displayDebug;
@@ -672,22 +729,46 @@ vec3 trace(Ray cameraRay) {
             incomingLight += getSkybox(ray) * rayColour;
             break;
         }
+        UsefulMaterial material = getMaterial(record);
 
+
+        vec3 N = material.shadingNormal;
+        vec3 T, B;
+        frisvad(N, T, B);
 
         vec3 wo = -ray.dir;
+        vec3 woLocal = normalize(vec3(dot(wo, T), dot(wo, B), dot(wo, N)));
         vec3 Le = record.material.emissionColour * record.material.emissionStrength;
+        incomingLight += Le * rayColour;
 
+        if (material.emissionStrength > 0.0) break;
+
+        #define BSDF_SAMPLING
+#ifdef BSDF_SAMPLING
+        BsdfSample bsdfSample = bsdf_sample_f(woLocal, material);
+        if (bsdfSample.wi == vec3(0.0)) break;
+
+        vec3 wiWorld = normalize(bsdfSample.wi.x * T + bsdfSample.wi.y * B + bsdfSample.wi.z * N);
+        vec3 fcos = bsdfSample.f * abs(dot(wiWorld, material.shadingNormal));
+
+        rayColour *= fcos / bsdfSample.p;
+        if (rayColour == vec3(0.0)) break;
+
+        ray.origin = record.pos + record.geometryNormal * 0.001 * sign(dot(wiWorld, record.geometryNormal));
+        ray.dir = wiWorld;
+#else
         vec3 wp = randomSphere();
+        vec3 wpLocal = normalize(vec3(dot(wp, T), dot(wp, B), dot(wp, N)));
         float wpPdf = 1.0 / (4.0 * 3.1415926);
 
-        vec3 fcos = bsdf_f(wo, wp, record) * abs(dot(wp, record.interpolatedNormal));
+        vec3 fcos = bsdf_f(woLocal, wpLocal, material) * abs(dot(wp, material.shadingNormal));
 
-        incomingLight += Le * rayColour;
         rayColour *= fcos / wpPdf;
         if (rayColour == vec3(0.0)) break;
 
-        ray.origin = record.pos + wp * 0.001;
+        ray.origin = record.pos + record.geometryNormal * 0.001 * sign(dot(wp, record.geometryNormal));
         ray.dir = wp;
+#endif
     }
 
     return incomingLight;
