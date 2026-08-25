@@ -104,7 +104,7 @@ layout (std430, binding = 2) buffer ModelBuffer {
 struct BsdfSample {
     vec3 wi;
     vec3 f;
-    float p;
+    float pdf;
     bool smoothBounce;
 };
 
@@ -674,6 +674,45 @@ BsdfSample diffuse_sample_f(vec3 wo, UsefulMaterial material) {
     return BsdfSample(wi, f, pdf, false);
 }
 
+BsdfSample reflective_sample_f(vec3 wo, vec3 wm, UsefulMaterial material) {
+    if (max(material.roughness.x, material.roughness.y) < 0.001) {
+        vec3 wi = vec3(-wo.x, -wo.y, wo.z);
+        float fr = 1.0 / abs(wi.z);
+        return BsdfSample(wi, vec3(fr), 1.0, true);
+    } else {
+        vec3 wi = reflectBetter(wo, wm);
+        if (!sameHemisphere(wo, wi)) return BsdfSample(vec3(0.0), vec3(0.0), 0.0, false);
+
+        float pdf = ggxPDF(wo, wm, material.roughness) / (4 * abs(dot(wo, wm)));
+        float f = ggxD(wm, material.roughness) * ggxG(wo, wi, material.roughness) / (4 * wi.z * wo.z);
+        return BsdfSample(wi, vec3(f), pdf, false);
+    }
+}
+
+BsdfSample dielectric_sample_f(vec3 wo, UsefulMaterial material) {
+    vec3 wm;
+    float reflectedFraction;
+    if (max(material.roughness.x, material.roughness.y) < 0.001) {
+        wm = vec3(0.0, 0.0, 1.0);
+        reflectedFraction = fresnelReflection(wo, wm, 1.0, material.ior);
+    } else {
+        wm = sampleGgxVndfNormal(wo, material.roughness);
+        reflectedFraction = fresnelReflection(wo, wm, 1.0, material.ior);
+    }
+
+    if (randomUniform() < reflectedFraction) {
+        BsdfSample reflectiveSample = reflective_sample_f(wo, wm, material);
+        reflectiveSample.f *= reflectedFraction;
+        reflectiveSample.pdf *= reflectedFraction;
+        return reflectiveSample;
+    }
+
+    BsdfSample diffuseSample = diffuse_sample_f(wo, material);
+    diffuseSample.f *= (1.0 - reflectedFraction);
+    diffuseSample.pdf *= (1.0 - reflectedFraction);
+    return diffuseSample;
+}
+
 BsdfSample conductor_sample_f(vec3 wo, UsefulMaterial material) {
     if (max(material.roughness.x, material.roughness.y) < 0.001) {
         vec3 wi = vec3(-wo.x, -wo.y, wo.z);
@@ -708,9 +747,15 @@ BsdfSample conductor_sample_f(vec3 wo, UsefulMaterial material) {
 
 BsdfSample bsdf_sample_f(vec3 wo, UsefulMaterial material) {
     if (randomUniform() < material.metalness) {
-        return conductor_sample_f(wo, material);
+        BsdfSample conductorSample = conductor_sample_f(wo, material);
+        conductorSample.f *= material.metalness;
+        conductorSample.pdf *= material.metalness;
+        return conductorSample;
     }
-    return diffuse_sample_f(wo, material);
+    BsdfSample dielectricSample = dielectric_sample_f(wo, material);
+    dielectricSample.f *= (1.0 - material.metalness);
+    dielectricSample.pdf *= (1.0 - material.metalness);
+    return dielectricSample;
 }
 
 uniform uint displayDebug;
@@ -751,7 +796,7 @@ vec3 trace(Ray cameraRay) {
         vec3 wiWorld = normalize(bsdfSample.wi.x * T + bsdfSample.wi.y * B + bsdfSample.wi.z * N);
         vec3 fcos = bsdfSample.f * abs(dot(wiWorld, material.shadingNormal));
 
-        rayColour *= fcos / bsdfSample.p;
+        rayColour *= fcos / bsdfSample.pdf;
         if (rayColour == vec3(0.0)) break;
 
         ray.origin = record.pos + record.geometryNormal * 0.001 * sign(dot(wiWorld, record.geometryNormal));
@@ -819,7 +864,7 @@ void main() {
     FragColor = vec4(mix(accumulatedColour, rayColour, weight), 1.0);
 
     if (displayDebug > 0) {
-        FragColor = turbo_color_map(debugColour.r / debugMaxTriangleIntersections + debugColour.b / debugMaxAABBIntersections);
+//        FragColor = turbo_color_map(debugColour.r / debugMaxTriangleIntersections + debugColour.b / debugMaxAABBIntersections);
 //        FragColor = vec4(debugColour.r / debugMaxTriangleIntersections, 0.0, debugColour.b / debugMaxAABBIntersections, 1.0);
 //        if (max(FragColor.r, FragColor.b) > 1.0) FragColor = vec4(1.0);
 //        FragColor = vec4(debugColour, 1.0);
