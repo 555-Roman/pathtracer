@@ -674,6 +674,43 @@ BsdfSample diffuse_sample_f(vec3 wo, UsefulMaterial material) {
     return BsdfSample(wi, f, pdf, false);
 }
 
+BsdfSample transmissive_sample_f(vec3 wo, vec3 wm, UsefulMaterial material) {
+    if (max(material.roughness.x, material.roughness.y) < 0.001) {
+        vec3 wi = refractBetter(wo, vec3(0.0, 0.0, 1.0), 1.0, material.ior);
+        if (wi == vec3(0.0)) return BsdfSample(vec3(0.0), vec3(0.0), 0.0, false);
+
+        vec3 ft = material.albedo / abs(wi.z);
+        return BsdfSample(wi, ft, 1.0, true);
+    } else {
+        vec3 wi = refractBetter(wo, wm, 1.0, material.ior);
+        if (sameHemisphere(wo, wi) || wi.z == 0 || wi == vec3(0.0)) return BsdfSample(vec3(0.0), vec3(0.0), 0.0, false);
+
+        float eta = material.ior;
+        if (dot(wo, wm) < 0.0) eta = 1.0 / eta;
+        float denom = pow(dot(wi, wm) + dot(wo, wm) / eta, 2);
+        float dwm_dwi = abs(dot(wi, wm)) / denom;
+        float pdf = ggxPDF(wo, wm, material.roughness) * dwm_dwi;
+
+        vec3 ft = material.albedo * ggxD(wm, material.roughness) * ggxG(wo, wi, material.roughness) * abs(dot(wi, wm) * dot(wo, wm) / (wi.z * wo.z * denom));
+
+        return BsdfSample(wi, ft, pdf, false);
+    }
+}
+
+BsdfSample entered_sample_f(vec3 wo, vec3 wm, UsefulMaterial material) {
+    if (randomUniform() < material.transmission) {
+        BsdfSample transmissiveSample = transmissive_sample_f(wo, wm, material);
+        transmissiveSample.f *= material.transmission;
+        transmissiveSample.pdf *= material.transmission;
+        return transmissiveSample;
+    }
+
+    BsdfSample diffuseSample = diffuse_sample_f(wo, material);
+    diffuseSample.f *= (1.0 - material.transmission);
+    diffuseSample.pdf *= (1.0 - material.transmission);
+    return diffuseSample;
+}
+
 BsdfSample reflective_sample_f(vec3 wo, vec3 wm, UsefulMaterial material) {
     if (max(material.roughness.x, material.roughness.y) < 0.001) {
         vec3 wi = vec3(-wo.x, -wo.y, wo.z);
@@ -707,10 +744,10 @@ BsdfSample dielectric_sample_f(vec3 wo, UsefulMaterial material) {
         return reflectiveSample;
     }
 
-    BsdfSample diffuseSample = diffuse_sample_f(wo, material);
-    diffuseSample.f *= (1.0 - reflectedFraction);
-    diffuseSample.pdf *= (1.0 - reflectedFraction);
-    return diffuseSample;
+    BsdfSample enteredSample = entered_sample_f(wo, wm, material);
+    enteredSample.f *= (1.0 - reflectedFraction);
+    enteredSample.pdf *= (1.0 - reflectedFraction);
+    return enteredSample;
 }
 
 BsdfSample conductor_sample_f(vec3 wo, UsefulMaterial material) {
@@ -791,7 +828,7 @@ vec3 trace(Ray cameraRay) {
         #define BSDF_SAMPLING
 #ifdef BSDF_SAMPLING
         BsdfSample bsdfSample = bsdf_sample_f(woLocal, material);
-        if (bsdfSample.wi == vec3(0.0)) break;
+        if (bsdfSample.wi == vec3(0.0) || bsdfSample.f == vec3(0.0) || bsdfSample.pdf == 0.0) break;
 
         vec3 wiWorld = normalize(bsdfSample.wi.x * T + bsdfSample.wi.y * B + bsdfSample.wi.z * N);
         vec3 fcos = bsdfSample.f * abs(dot(wiWorld, material.shadingNormal));
