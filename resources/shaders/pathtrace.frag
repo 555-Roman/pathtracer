@@ -668,7 +668,7 @@ vec3 bsdf_f(vec3 wo, vec3 wp, UsefulMaterial material) {
 
 BsdfSample diffuse_sample_f(vec3 wo, UsefulMaterial material) {
     vec3 wi = sampleCosineHemisphere(wo);
-    float pdf = wi.z / 3.1415926;
+    float pdf = abs(wi.z) / 3.1415926;
     vec3 f = material.albedo / 3.1415926;
 
     return BsdfSample(wi, f, pdf, false);
