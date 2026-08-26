@@ -117,17 +117,11 @@ float randomUniform() {
     result = (result >> 22u) ^ result;
     return result / 4294967294.0;
 }
-float randomNormal() {
-    float theta = 2 * 3.1415926 * randomUniform();
-    float rho = sqrt(-2 * log(randomUniform()));
-    return rho * cos(theta);
-}
 vec3 randomSphere() {
-    float x = randomNormal();
-    float y = randomNormal();
-    float z = randomNormal();
-
-    return normalize(vec3(x, y, z));
+    float z = 1.0 - 2.0 * randomUniform();
+    float r = max(0.0, 1.0 - z*z);
+    float phi = 2 * 3.1415926 * randomUniform();
+    return vec3(r * cos(phi), r * sin(phi), z);
 }
 vec3 sampleCosineHemisphere(vec3 wo) {
     float phi = 2.0f * 3.1415926 * randomUniform();
@@ -410,89 +404,6 @@ vec3 refractBetter(vec3 w, vec3 n, float iorOutside, float iorInside) {
 
 bool sameHemisphere(vec3 w0, vec3 w1) {
     return w0.z * w1.z > 0.0;
-}
-
-void sampleOutgoingReflection(inout Ray ray, HitRecord record, out vec3 rayTint) {
-    rayTint = vec3(0.0);
-
-    Material material = record.material;
-    vec3 albedo = uvec2(material.albedoTextureHandle) == uvec2(0) ?
-        material.albedo :
-        pow(texture(material.albedoTextureHandle, record.uv).rgb, vec3(2.2));
-    float roughness = uvec2(material.roughnessTextureHandle) == uvec2(0) ?
-        material.roughness :
-        texture(material.roughnessTextureHandle, record.uv).r;
-    float metalness = uvec2(material.metalnessTextureHandle) == uvec2(0) ?
-        material.metalness :
-        texture(material.metalnessTextureHandle, record.uv).r;
-    vec3 textureN = uvec2(material.normalTextureHandle) == uvec2(0) ?
-        vec3(0.0, 0.0, 1.0) :
-        normalize(texture(material.normalTextureHandle, record.uv).rgb * 2.0 - 1.0);
-    float transmission = //uvec2(material.transmissionTextureHandle) == uvec2(0) ?
-        material.transmission //:
-        //texture(material.transmissionTextureHandle, record.uv).r
-    ;
-
-    vec3 N = record.interpolatedNormal;
-    vec3 T, B;
-    frisvad(N, T, B);
-    vec3 wiWorld = -ray.dir;
-    vec3 wiTangent = normalize(vec3(dot(wiWorld, T), dot(wiWorld, B), dot(wiWorld, N)));
-
-    bool normalMapping = uvec2(material.normalTextureHandle) != uvec2(0);
-    vec3 textureT, textureB;
-    if (normalMapping) {
-        textureN = normalize(textureN.x * T + textureN.y * B + textureN.z * N);
-        frisvad(textureN, textureT, textureB);
-        wiTangent = normalize(vec3(dot(wiWorld, textureT), dot(wiWorld, textureB), dot(wiWorld, textureN)));
-    }
-
-    vec3 microfacetNormal = sampleGgxVndfNormal(wiTangent, pow(vec2(roughness), vec2(2.0)));
-    float reflectionFraction = fresnelReflection(wiTangent, microfacetNormal, 1.0, material.ior);
-
-    vec3 woTangent;
-    bool woOutside;
-//    if (randomUniform() < metalness) {
-//        woTangent = reflectBetter(wiTangent, microfacetNormal);
-//        if (!sameHemisphere(wiTangent, woTangent)) return;
-//        woOutside = true;
-//        if (material.complexN == vec3(0.0))
-//            rayTint = schlickFresnel(wiTangent, microfacetNormal, 1.0, material.ior, albedo);
-//        else
-//            rayTint = fresnelConductor(wiTangent, microfacetNormal, 1.0, material.complexN, material.complexK);
-//    } else {
-//        if (randomUniform() < reflectionFraction) {
-//            woTangent = reflectBetter(wiTangent, microfacetNormal);
-//            if (!sameHemisphere(wiTangent, woTangent)) return;
-//            woOutside = true;
-//            rayTint = vec3(1.0);
-//        } else {
-//            if (randomUniform() < transmission) {
-//                woTangent = refractBetter(wiTangent, microfacetNormal, 1.0, material.ior);
-//                if (sameHemisphere(wiTangent, woTangent)) return;
-//                woOutside = false;
-//                rayTint = albedo;
-//            } else {
-                woTangent = sampleCosineHemisphere(wiTangent);
-                woOutside = true;
-                rayTint = albedo;
-//            }
-//        }
-//    }
-    woOutside = woOutside == (dot(wiWorld, record.geometryNormal) >= 0.0);
-
-    vec3 woWorld = normalize(woTangent.x * T + woTangent.y * B + woTangent.z * N);
-
-    if (normalMapping) {
-        woWorld = normalize(woTangent.x * textureT + woTangent.y * textureB + woTangent.z * textureN);
-    }
-
-    if (woOutside)
-        ray.origin = record.pos + record.geometryNormal * 0.001;
-    else
-        ray.origin = record.pos - record.geometryNormal * 0.001;
-
-    ray.dir = woWorld;
 }
 
 float ggxD(vec3 wm, vec2 alpha) {
