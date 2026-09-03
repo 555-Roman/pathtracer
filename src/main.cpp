@@ -189,7 +189,7 @@ int main() {
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, model_ssbo);
 
 
-    // setSkyboxEquirectangular(RESOURCES_PATH "textures/rogland_clear_night_4k.png");
+    setSkyboxEquirectangular(RESOURCES_PATH "textures/rogland_clear_night_4k.png");
     skyboxFormat = 3;
 
     // importAndSend(RESOURCES_PATH "models/tests/CornellBox/CornellBox-Original.obj");
@@ -460,7 +460,7 @@ int main() {
                 ImGui::NewLine();
 
                 if (ImGui::InputInt("Skybox Format", (int*)&skyboxFormat)) {
-                    skyboxFormat = clamp(skyboxFormat, 0u, 3u);
+                    skyboxFormat = skyboxFormat - skyboxFormat / 4u * 4u;
                     currentFrame = 0;
                 }
             }
@@ -469,19 +469,69 @@ int main() {
             ImGui::Begin("Inspector");
             {
                 ImGui::InputInt("Model Array Index", &selectedModelIndex);
+
                 if (selectedModelIndex >= 0 && selectedModelIndex < models.size()) {
-                    if (ImGui::DragFloat3("Offset", (float*)&models[selectedModelIndex].translation, 0.1)) {
-                        models[selectedModelIndex].updateMatrices();
+                    Model& model = models[selectedModelIndex];
+                    ImGui::Text("Transform");
+                    if (ImGui::DragFloat3("Offset", (float*)&model.translation, 0.1)) {
+                        model.updateMatrices();
                         sendModel(selectedModelIndex);
                         currentFrame = 0;
                     }
-                    if (ImGui::DragFloat3("Rotation", (float*)&models[selectedModelIndex].rotation, 1.0)) {
-                        models[selectedModelIndex].updateMatrices();
+                    if (ImGui::DragFloat3("Rotation", (float*)&model.rotation, 1.0)) {
+                        model.updateMatrices();
                         sendModel(selectedModelIndex);
                         currentFrame = 0;
                     }
-                    if (ImGui::DragFloat3("Scale", (float*)&models[selectedModelIndex].scale, 0.1)) {
-                        models[selectedModelIndex].updateMatrices();
+                    if (ImGui::DragFloat3("Scale", (float*)&model.scale, 0.1)) {
+                        model.updateMatrices();
+                        sendModel(selectedModelIndex);
+                        currentFrame = 0;
+                    }
+
+                    ImGui::NewLine();
+
+                    Material& material = model.material;
+                    ImGui::Text("Material");
+                    if (ImGui::ColorEdit3("Albedo", (float*)&material.albedo)) {
+                        sendModel(selectedModelIndex);
+                        currentFrame = 0;
+                    }
+                    if (ImGui::DragFloat("Opacity", &material.opacity, 0.01, 0.0, 1.0)) {
+                        sendModel(selectedModelIndex);
+                        currentFrame = 0;
+                    }
+                    if (ImGui::ColorEdit3("Emission Colour", (float*)&material.emissionColour)) {
+                        sendModel(selectedModelIndex);
+                        currentFrame = 0;
+                    }
+                    if (ImGui::DragFloat("Emission Strength", &material.emissionStrength, 0.1, 0.0, INFINITY)) {
+                        sendModel(selectedModelIndex);
+                        currentFrame = 0;
+                    }
+
+                    if (ImGui::DragFloat("Roughness", &material.roughness, 0.01, 0.0, 1.0)) {
+                        sendModel(selectedModelIndex);
+                        currentFrame = 0;
+                    }
+                    if (ImGui::DragFloat("Metalness", &material.metalness, 0.01, 0.0, 1.0)) {
+                        sendModel(selectedModelIndex);
+                        currentFrame = 0;
+                    }
+                    if (ImGui::DragFloat("IOR", &material.ior, 0.01, 0.0, INFINITY)) {
+                        sendModel(selectedModelIndex);
+                        currentFrame = 0;
+                    }
+                    if (ImGui::DragFloat("Transmission", &material.transmission, 0.01, 0.0, 1.0)) {
+                        sendModel(selectedModelIndex);
+                        currentFrame = 0;
+                    }
+
+                    if (ImGui::DragFloat3("Complex N", (float*)&material.complexN, 0.01, 0.0, INFINITY)) {
+                        sendModel(selectedModelIndex);
+                        currentFrame = 0;
+                    }
+                    if (ImGui::DragFloat3("Complex K", (float*)&material.complexK, 0.01, 0.0, INFINITY)) {
                         sendModel(selectedModelIndex);
                         currentFrame = 0;
                     }

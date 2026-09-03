@@ -710,10 +710,6 @@ UsefulMaterial getMaterial(HitRecord record) {
     N = normalize(useful.shadingNormal.x * T + useful.shadingNormal.y * B + useful.shadingNormal.z * N);
     useful.shadingNormal = N;
 
-    useful.albedo = vec3(1.0);
-    useful.roughness = vec2(0.0);
-    useful.metalness = 1.0;
-
     return useful;
 }
 
@@ -754,7 +750,7 @@ vec3 trace(Ray cameraRay) {
 
         vec3 fcos = bsdfSample.f * abs(bsdfSample.wi.z);
 
-//        rayColour *= fcos / bsdfSample.pdf;
+        rayColour *= fcos / bsdfSample.pdf;
         if (rayColour == vec3(0.0)) break;
 
         vec3 offset = record.geometryNormal * 0.001 * sign(dot(record.geometryNormal, wo));
