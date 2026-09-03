@@ -106,6 +106,7 @@ struct BsdfSample {
     vec3 f;
     float pdf;
     bool smoothBounce;
+    bool transmitted;
 };
 
 vec3 debugColour = vec3(0.0);
@@ -291,6 +292,10 @@ vec3 getSkybox(Ray ray) {
         float u = atan(ray.dir.z, ray.dir.x) * 0.5 / 3.1415926 + 0.5;
         float v = asin(ray.dir.y) / 3.1415926 + 0.5;
         return pow(texture(skyboxEquirectangularTexture, vec2(u, v)).rgb, vec3(2.2));
+    } else if (skyboxFormat == 3) {
+        if (ray.dir.y >= 0.0)
+            return vec3(1.0);
+        return vec3(0.0);
     } else {
         return vec3(0.0);
     }
@@ -532,43 +537,6 @@ vec3 conductor_f(vec3 wo, vec3 wi, UsefulMaterial material) {
     return ggxD(wm, material.roughness) * reflectionTint * ggxG(wo, wi, material.roughness) / (4 * cosTheta_i * cosTheta_o);
 }
 
-UsefulMaterial getMaterial(HitRecord record) {
-    Material material = record.material;
-
-    UsefulMaterial useful;
-    useful.albedo = material.albedo;
-    useful.opacity = material.opacity;
-    useful.emissionColour = material.emissionColour;
-    useful.emissionStrength = material.emissionStrength;
-    useful.roughness = vec2(material.roughness * material.roughness);
-    useful.metalness = material.metalness;
-    useful.ior = material.ior;
-    useful.transmission = material.transmission;
-    useful.complexN = material.complexN;
-    useful.complexK = material.complexK;
-    useful.shadingNormal = vec3(0.0, 0.0, 1.0);
-
-    if (uvec2(material.albedoTextureHandle) != uvec2(0)) {
-        vec4 color = texture(material.albedoTextureHandle, record.uv);
-        useful.albedo = pow(color.rgb, vec3(2.2));
-        useful.opacity = color.a;
-    }
-    if (uvec2(material.roughnessTextureHandle) != uvec2(0))
-        useful.roughness = vec2(pow(texture(material.roughnessTextureHandle, record.uv).r, 2.0));
-    if (uvec2(material.metalnessTextureHandle) != uvec2(0))
-        useful.metalness = texture(material.metalnessTextureHandle, record.uv).r;
-    if (uvec2(material.normalTextureHandle) != uvec2(0))
-        useful.shadingNormal = normalize(texture(material.normalTextureHandle, record.uv).rgb * 2.0 - 1.0);
-
-    vec3 N = record.interpolatedNormal;
-    vec3 T, B;
-    frisvad(N, T, B);
-    N = normalize(useful.shadingNormal.x * T + useful.shadingNormal.y * B + useful.shadingNormal.z * N);
-    useful.shadingNormal = N;
-
-    return useful;
-}
-
 vec3 bsdf_f(vec3 wo, vec3 wp, UsefulMaterial material) {
     return mix(
         dielectric_f(wo, wp, material),
@@ -582,19 +550,19 @@ BsdfSample diffuse_sample_f(vec3 wo, UsefulMaterial material) {
     float pdf = abs(wi.z) / 3.1415926;
     vec3 f = material.albedo / 3.1415926;
 
-    return BsdfSample(wi, f, pdf, false);
+    return BsdfSample(wi, f, pdf, false, false);
 }
 
 BsdfSample transmissive_sample_f(vec3 wo, vec3 wm, UsefulMaterial material) {
     if (max(material.roughness.x, material.roughness.y) < 0.001) {
         vec3 wi = refractBetter(wo, vec3(0.0, 0.0, 1.0), 1.0, material.ior);
-        if (wi == vec3(0.0)) return BsdfSample(vec3(0.0), vec3(0.0), 0.0, false);
+        if (wi == vec3(0.0)) return BsdfSample(vec3(0.0), vec3(0.0), 0.0, false, true);
 
         vec3 ft = material.albedo / abs(wi.z);
-        return BsdfSample(wi, ft, 1.0, true);
+        return BsdfSample(wi, ft, 1.0, true, true);
     } else {
         vec3 wi = refractBetter(wo, wm, 1.0, material.ior);
-        if (sameHemisphere(wo, wi) || wi.z == 0 || wi == vec3(0.0)) return BsdfSample(vec3(0.0), vec3(0.0), 0.0, false);
+        if (sameHemisphere(wo, wi) || wi.z == 0 || wi == vec3(0.0)) return BsdfSample(vec3(0.0), vec3(0.0), 0.0, false, true);
 
         float eta = material.ior;
         if (dot(wo, wm) < 0.0) eta = 1.0 / eta;
@@ -604,7 +572,7 @@ BsdfSample transmissive_sample_f(vec3 wo, vec3 wm, UsefulMaterial material) {
 
         vec3 ft = material.albedo * ggxD(wm, material.roughness) * ggxG(wo, wi, material.roughness) * abs(dot(wi, wm) * dot(wo, wm) / (wi.z * wo.z * denom));
 
-        return BsdfSample(wi, ft, pdf, false);
+        return BsdfSample(wi, ft, pdf, false, true);
     }
 }
 
@@ -626,14 +594,14 @@ BsdfSample reflective_sample_f(vec3 wo, vec3 wm, UsefulMaterial material) {
     if (max(material.roughness.x, material.roughness.y) < 0.001) {
         vec3 wi = vec3(-wo.x, -wo.y, wo.z);
         float fr = 1.0 / abs(wi.z);
-        return BsdfSample(wi, vec3(fr), 1.0, true);
+        return BsdfSample(wi, vec3(fr), 1.0, true, false);
     } else {
         vec3 wi = reflectBetter(wo, wm);
-        if (!sameHemisphere(wo, wi)) return BsdfSample(vec3(0.0), vec3(0.0), 0.0, false);
+        if (!sameHemisphere(wo, wi)) return BsdfSample(vec3(0.0), vec3(0.0), 0.0, false, false);
 
         float pdf = ggxPDF(wo, wm, material.roughness) / (4 * abs(dot(wo, wm)));
         float f = ggxD(wm, material.roughness) * ggxG(wo, wi, material.roughness) / (4 * wi.z * wo.z);
-        return BsdfSample(wi, vec3(f), pdf, false);
+        return BsdfSample(wi, vec3(f), pdf, false, false);
     }
 }
 
@@ -671,12 +639,12 @@ BsdfSample conductor_sample_f(vec3 wo, UsefulMaterial material) {
         else
             reflectionTint = fresnelConductor(wo, vec3(0.0, 0.0, 1.0), 1.0, material.complexN, material.complexK);
 
-        return BsdfSample(wi, reflectionTint / abs(wi.z), 1, true);
+        return BsdfSample(wi, reflectionTint / abs(wi.z), 1, true, false);
     }
 
     vec3 wm = sampleGgxVndfNormal(wo, material.roughness);
     vec3 wi = reflectBetter(wo, wm);
-    if (!sameHemisphere(wo, wi)) return BsdfSample(vec3(0.0), vec3(0.0), 0.0, false);
+    if (!sameHemisphere(wo, wi)) return BsdfSample(vec3(0.0), vec3(0.0), 0.0, false, false);
 
     float pdf = ggxPDF(wo, wm, material.roughness) / (4 * abs(dot(wo, wm)));
 
@@ -690,7 +658,7 @@ BsdfSample conductor_sample_f(vec3 wo, UsefulMaterial material) {
 
     vec3 f = ggxD(wm, material.roughness) * reflectionTint * ggxG(wo, wi, material.roughness) / (4 * cosTheta_i * cosTheta_o);
 
-    return BsdfSample(wi, f, pdf, false);
+    return BsdfSample(wi, f, pdf, false, false);
 }
 
 BsdfSample bsdf_sample_f(vec3 wo, UsefulMaterial material) {
@@ -708,6 +676,47 @@ BsdfSample bsdf_sample_f(vec3 wo, UsefulMaterial material) {
 
 uniform uint displayDebug;
 
+UsefulMaterial getMaterial(HitRecord record) {
+    Material material = record.material;
+
+    UsefulMaterial useful;
+    useful.albedo = material.albedo;
+    useful.opacity = material.opacity;
+    useful.emissionColour = material.emissionColour;
+    useful.emissionStrength = material.emissionStrength;
+    useful.roughness = vec2(material.roughness * material.roughness);
+    useful.metalness = material.metalness;
+    useful.ior = material.ior;
+    useful.transmission = material.transmission;
+    useful.complexN = material.complexN;
+    useful.complexK = material.complexK;
+    useful.shadingNormal = vec3(0.0, 0.0, 1.0);
+
+    if (uvec2(material.albedoTextureHandle) != uvec2(0)) {
+        vec4 color = texture(material.albedoTextureHandle, record.uv);
+        useful.albedo = pow(color.rgb, vec3(2.2));
+        useful.opacity = color.a;
+    }
+    if (uvec2(material.roughnessTextureHandle) != uvec2(0))
+        useful.roughness = vec2(pow(texture(material.roughnessTextureHandle, record.uv).r, 2.0));
+    if (uvec2(material.metalnessTextureHandle) != uvec2(0))
+        useful.metalness = texture(material.metalnessTextureHandle, record.uv).r;
+    if (uvec2(material.normalTextureHandle) != uvec2(0))
+        useful.shadingNormal = normalize(texture(material.normalTextureHandle, record.uv).rgb * 2.0 - 1.0);
+
+    vec3 N = record.interpolatedNormal;
+    vec3 T, B;
+    frisvad(N, T, B);
+    N = normalize(useful.shadingNormal.x * T + useful.shadingNormal.y * B + useful.shadingNormal.z * N);
+    useful.shadingNormal = N;
+
+    useful.albedo = vec3(1.0);
+    useful.roughness = vec2(0.0);
+    useful.metalness = 1.0;
+
+    return useful;
+}
+
 uniform int maxBounces;
 vec3 trace(Ray cameraRay) {
     Ray ray = cameraRay;
@@ -716,12 +725,14 @@ vec3 trace(Ray cameraRay) {
 
     for (uint bounce = 0; bounce <= maxBounces; bounce++) {
         HitRecord record = intersectScene(ray);
-        if (displayDebug > 0)
-            return record.interpolatedNormal;
         if (!record.hit) {
             incomingLight += getSkybox(ray) * rayColour;
             break;
         }
+//        if (displayDebug > 0)
+//            return record.interpolatedNormal * .5 + .5;
+//            return record.geometryNormal * .5 + .5;
+//            return getMaterial(record).shadingNormal * .5 + .5;
         UsefulMaterial material = getMaterial(record);
 
 
@@ -731,7 +742,7 @@ vec3 trace(Ray cameraRay) {
 
         vec3 wo = -ray.dir;
         vec3 woLocal = normalize(vec3(dot(wo, T), dot(wo, B), dot(wo, N)));
-        vec3 Le = record.material.emissionColour * record.material.emissionStrength;
+        vec3 Le = material.emissionColour * material.emissionStrength;
         incomingLight += Le * rayColour;
 
         if (material.emissionStrength > 0.0) break;
@@ -741,13 +752,17 @@ vec3 trace(Ray cameraRay) {
         BsdfSample bsdfSample = bsdf_sample_f(woLocal, material);
         if (bsdfSample.wi == vec3(0.0) || bsdfSample.f == vec3(0.0) || bsdfSample.pdf == 0.0) break;
 
-        vec3 wiWorld = normalize(bsdfSample.wi.x * T + bsdfSample.wi.y * B + bsdfSample.wi.z * N);
-        vec3 fcos = bsdfSample.f * abs(dot(wiWorld, material.shadingNormal));
+        vec3 fcos = bsdfSample.f * abs(bsdfSample.wi.z);
 
-        rayColour *= fcos / bsdfSample.pdf;
+//        rayColour *= fcos / bsdfSample.pdf;
         if (rayColour == vec3(0.0)) break;
 
-        ray.origin = record.pos + record.geometryNormal * 0.001 * sign(dot(wiWorld, record.geometryNormal));
+        vec3 offset = record.geometryNormal * 0.001 * sign(dot(record.geometryNormal, wo));
+        if (bsdfSample.transmitted)
+            offset = -offset;
+
+        ray.origin = record.pos + offset;
+        vec3 wiWorld = normalize(bsdfSample.wi.x * T + bsdfSample.wi.y * B + bsdfSample.wi.z * N);
         ray.dir = wiWorld;
 #else
         vec3 wp = randomSphere();
@@ -812,7 +827,7 @@ void main() {
     FragColor = vec4(mix(accumulatedColour, rayColour, weight), 1.0);
 
     if (displayDebug > 0) {
-//        FragColor = turbo_color_map(debugColour.r / debugMaxTriangleIntersections + debugColour.b / debugMaxAABBIntersections);
+        FragColor = turbo_color_map(debugColour.r / debugMaxTriangleIntersections + debugColour.b / debugMaxAABBIntersections);
 //        FragColor = vec4(debugColour.r / debugMaxTriangleIntersections, 0.0, debugColour.b / debugMaxAABBIntersections, 1.0);
 //        if (max(FragColor.r, FragColor.b) > 1.0) FragColor = vec4(1.0);
 //        FragColor = vec4(debugColour, 1.0);
