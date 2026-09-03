@@ -747,6 +747,8 @@ vec3 trace(Ray cameraRay) {
 #ifdef BSDF_SAMPLING
         BsdfSample bsdfSample = bsdf_sample_f(woLocal, material);
         if (bsdfSample.wi == vec3(0.0) || bsdfSample.f == vec3(0.0) || bsdfSample.pdf == 0.0) break;
+        if (any(isnan(bsdfSample.f))) break;
+        if (isnan(bsdfSample.pdf)) break;
 
         vec3 fcos = bsdfSample.f * abs(bsdfSample.wi.z);
 
