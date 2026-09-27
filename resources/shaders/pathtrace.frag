@@ -105,9 +105,10 @@ struct BsdfSample {
     vec3 wi;
     vec3 f;
     float pdf;
-    bool smoothBounce;
+    bool specularBounce;
     bool transmitted;
 };
+const BsdfSample nullSample = {vec3(0.0), vec3(0.0), 0.0, false, false};
 
 vec3 debugColour = vec3(0.0);
 
@@ -293,8 +294,8 @@ vec3 getSkybox(Ray ray) {
         float v = asin(ray.dir.y) / 3.1415926 + 0.5;
         return pow(texture(skyboxEquirectangularTexture, vec2(u, v)).rgb, vec3(2.2));
     } else if (skyboxFormat == 3) {
-        if (ray.dir.y >= 0.0)
-            return vec3(1.0);
+//        if (ray.dir.y >= 0.0)
+//            return vec3(1.0);
         return vec3(0.0);
     } else {
         return vec3(0.0);
@@ -376,7 +377,7 @@ vec3 sampleGgxVndfNormal(vec3 wi, vec2 alpha) {
 }
 
 void frisvad(vec3 n, out vec3 b1, out vec3 b2) {
-    if(n.z < -0.9999999) {
+    if (n.z < -0.9999999) {
         b1 = vec3(0.0, -1.0, 0.0);
         b2 = vec3(-1.0, 0.0, 0.0);
         return;
@@ -556,13 +557,13 @@ BsdfSample diffuse_sample_f(vec3 wo, UsefulMaterial material) {
 BsdfSample transmissive_sample_f(vec3 wo, vec3 wm, UsefulMaterial material) {
     if (max(material.roughness.x, material.roughness.y) < 0.001) {
         vec3 wi = refractBetter(wo, vec3(0.0, 0.0, 1.0), 1.0, material.ior);
-        if (wi == vec3(0.0)) return BsdfSample(vec3(0.0), vec3(0.0), 0.0, false, true);
+        if (wi == vec3(0.0)) return nullSample;
 
         vec3 ft = material.albedo / abs(wi.z);
         return BsdfSample(wi, ft, 1.0, true, true);
     } else {
         vec3 wi = refractBetter(wo, wm, 1.0, material.ior);
-        if (sameHemisphere(wo, wi) || wi.z == 0 || wi == vec3(0.0)) return BsdfSample(vec3(0.0), vec3(0.0), 0.0, false, true);
+        if (sameHemisphere(wo, wi) || wi.z == 0 || wi == vec3(0.0)) return nullSample;
 
         float eta = material.ior;
         if (dot(wo, wm) < 0.0) eta = 1.0 / eta;
@@ -597,7 +598,7 @@ BsdfSample reflective_sample_f(vec3 wo, vec3 wm, UsefulMaterial material) {
         return BsdfSample(wi, vec3(fr), 1.0, true, false);
     } else {
         vec3 wi = reflectBetter(wo, wm);
-        if (!sameHemisphere(wo, wi)) return BsdfSample(vec3(0.0), vec3(0.0), 0.0, false, false);
+        if (!sameHemisphere(wo, wi)) return nullSample;
 
         float pdf = ggxPDF(wo, wm, material.roughness) / (4 * abs(dot(wo, wm)));
         float f = ggxD(wm, material.roughness) * ggxG(wo, wi, material.roughness) / (4 * wi.z * wo.z);
@@ -644,7 +645,7 @@ BsdfSample conductor_sample_f(vec3 wo, UsefulMaterial material) {
 
     vec3 wm = sampleGgxVndfNormal(wo, material.roughness);
     vec3 wi = reflectBetter(wo, wm);
-    if (!sameHemisphere(wo, wi)) return BsdfSample(vec3(0.0), vec3(0.0), 0.0, false, false);
+    if (!sameHemisphere(wo, wi)) return nullSample;
 
     float pdf = ggxPDF(wo, wm, material.roughness) / (4 * abs(dot(wo, wm)));
 
@@ -713,24 +714,26 @@ UsefulMaterial getMaterial(HitRecord record) {
     return useful;
 }
 
+
+bool sampleBsdf = true;
+bool sampleLights = true;
+
 uniform int maxBounces;
 vec3 trace(Ray cameraRay) {
     Ray ray = cameraRay;
     vec3 incomingLight = vec3(0.0);
     vec3 rayColour = vec3(1.0);
+    bool specularBounce = true;
 
     for (uint bounce = 0; bounce <= maxBounces; bounce++) {
         HitRecord record = intersectScene(ray);
         if (!record.hit) {
-            incomingLight += getSkybox(ray) * rayColour;
+            if (!sampleLights || specularBounce) {
+                incomingLight += getSkybox(ray) * rayColour;
+            }
             break;
         }
-//        if (displayDebug > 0)
-//            return record.interpolatedNormal * .5 + .5;
-//            return record.geometryNormal * .5 + .5;
-//            return getMaterial(record).shadingNormal * .5 + .5;
         UsefulMaterial material = getMaterial(record);
-
 
         vec3 N = material.shadingNormal;
         vec3 T, B;
@@ -738,43 +741,94 @@ vec3 trace(Ray cameraRay) {
 
         vec3 wo = -ray.dir;
         vec3 woLocal = normalize(vec3(dot(wo, T), dot(wo, B), dot(wo, N)));
-        vec3 Le = material.emissionColour * material.emissionStrength;
-        incomingLight += Le * rayColour;
-
+        if (!sampleLights || specularBounce) {
+            vec3 Le = material.emissionColour * material.emissionStrength;
+            incomingLight += Le * rayColour;
+        }
         if (material.emissionStrength > 0.0) break;
 
-        #define BSDF_SAMPLING
-#ifdef BSDF_SAMPLING
-        BsdfSample bsdfSample = bsdf_sample_f(woLocal, material);
-        if (bsdfSample.wi == vec3(0.0) || bsdfSample.f == vec3(0.0) || bsdfSample.pdf == 0.0) break;
-        if (any(isnan(bsdfSample.f))) break;
-        if (isnan(bsdfSample.pdf)) break;
+        if (sampleLights && lightCount > 0) {
+            uint lightIndex = uint(floor(randomUniform() * lightCount));
+            Model light = models[lightIndex];
+            vec3 Le = light.material.emissionColour * light.material.emissionStrength;
+            float lightSampleP = 1.0 / lightCount;
 
-        vec3 fcos = bsdfSample.f * abs(bsdfSample.wi.z);
+            uint triangleIndex = light.triangleIndex + uint(floor(randomUniform() * light.triangleCount));
+            Triangle triangle = triangles[triangleIndex];
+            float triangleSampleP = 1.0 / light.triangleCount;
 
-        rayColour *= fcos / bsdfSample.pdf;
-        if (rayColour == vec3(0.0)) break;
+            float randomU = randomUniform();
+            float randomV = randomUniform();
+            if (randomU + randomV > 1.0) {
+                randomU = 1.0 - randomU;
+                randomV = 1.0 - randomV;
+            }
+            float randomW = 1.0 - randomU - randomV;
 
-        vec3 offset = record.geometryNormal * 0.001 * sign(dot(record.geometryNormal, wo));
-        if (bsdfSample.transmitted)
+            vec3 randomPoint = triangle.aPosition * randomW + triangle.bPosition * randomU + triangle.cPosition * randomV;
+            vec3 ab = triangle.bPosition - triangle.aPosition;
+            vec3 ac = triangle.cPosition - triangle.aPosition;
+            float pointSampleP = 1.0 / (0.5 * length(cross(ab, ac)));
+
+            vec3 lightDirection = randomPoint - record.pos;
+            float dist = length(lightDirection);
+            lightDirection /= dist;
+
+            vec3 lightDirectionLocal = normalize(vec3(dot(lightDirection, T), dot(lightDirection, B), dot(lightDirection, N)));
+            vec3 fcos = bsdf_f(woLocal, lightDirectionLocal, material) * abs(dot(lightDirection, material.shadingNormal));
+
+            float pdf = lightSampleP * triangleSampleP * pointSampleP;
+
+            Ray lightRay;
+            vec3 offset = record.geometryNormal * 0.001 * sign(dot(record.geometryNormal, wo));
+            if (dot(lightDirection, record.geometryNormal) < 0.0)
+                offset = -offset;
+            lightRay.origin = record.pos + offset;
+            lightRay.dir = lightDirection;
+
+            HitRecord lightRecord = intersectScene(lightRay);
+            if (any(greaterThan(fcos, vec3(0.0))) && lightRecord.hit && lightRecord.triangleIdx == triangleIndex) {
+                float lightCos = abs(dot(-lightDirection, lightRecord.interpolatedNormal));
+
+                incomingLight += rayColour * fcos * lightCos * Le / (pdf * dist * dist);
+            }
+        }
+
+        if (sampleBsdf) {
+            BsdfSample bsdfSample = bsdf_sample_f(woLocal, material);
+            if (bsdfSample.wi == vec3(0.0) || bsdfSample.f == vec3(0.0) || bsdfSample.pdf == 0.0) break;
+            if (any(isnan(bsdfSample.f))) break;
+            if (isnan(bsdfSample.pdf)) break;
+
+            vec3 fcos = bsdfSample.f * abs(bsdfSample.wi.z);
+
+            rayColour *= fcos / bsdfSample.pdf;
+            if (rayColour == vec3(0.0)) break;
+
+            specularBounce = bsdfSample.specularBounce;
+
+            vec3 offset = record.geometryNormal * 0.001 * sign(dot(record.geometryNormal, wo));
+            if (bsdfSample.transmitted)
             offset = -offset;
 
-        ray.origin = record.pos + offset;
-        vec3 wiWorld = normalize(bsdfSample.wi.x * T + bsdfSample.wi.y * B + bsdfSample.wi.z * N);
-        ray.dir = wiWorld;
-#else
-        vec3 wp = randomSphere();
-        vec3 wpLocal = normalize(vec3(dot(wp, T), dot(wp, B), dot(wp, N)));
-        float wpPdf = 1.0 / (4.0 * 3.1415926);
+            ray.origin = record.pos + offset;
+            vec3 wiWorld = normalize(bsdfSample.wi.x * T + bsdfSample.wi.y * B + bsdfSample.wi.z * N);
+            ray.dir = wiWorld;
+        } else {
+            vec3 wp = randomSphere();
+            vec3 wpLocal = normalize(vec3(dot(wp, T), dot(wp, B), dot(wp, N)));
+            float wpPdf = 1.0 / (4.0 * 3.1415926);
 
-        vec3 fcos = bsdf_f(woLocal, wpLocal, material) * abs(dot(wp, material.shadingNormal));
+            vec3 fcos = bsdf_f(woLocal, wpLocal, material) * abs(dot(wp, material.shadingNormal));
 
-        rayColour *= fcos / wpPdf;
-        if (rayColour == vec3(0.0)) break;
+            rayColour *= fcos / wpPdf;
+            if (rayColour == vec3(0.0)) break;
 
-        ray.origin = record.pos + record.geometryNormal * 0.001 * sign(dot(wp, record.geometryNormal));
-        ray.dir = wp;
-#endif
+            specularBounce = false;
+
+            ray.origin = record.pos + record.geometryNormal * 0.001 * sign(dot(wp, record.geometryNormal));
+            ray.dir = wp;
+        }
     }
 
     return incomingLight;

@@ -41,13 +41,13 @@ bool cameraRelativeRotation = false;
 float MOVEMENT_SPEED = 1.0;
 float ROTATION_SPEED = 90.0;
 
-// vec3 cameraPos = vec3(-0.665074, 1.72268, 3.39638);
-// float cameraPitch = -16.1004;
-// float cameraYaw = 16.9604;
-// float cameraRoll = 0;
-// vec3 cameraRight = vec3(0.956507, 0, 0.291711);
-// vec3 cameraUp = vec3(0.0808977, 0.960777, -0.26526);
-// vec3 cameraForward = vec3(0.280269, -0.277322, -0.91899);
+vec3 cameraPos = vec3(-0.665074, 1.72268, 3.39638);
+float cameraPitch = -16.1004;
+float cameraYaw = 16.9604;
+float cameraRoll = 0;
+vec3 cameraRight = vec3(0.956507, 0, 0.291711);
+vec3 cameraUp = vec3(0.0808977, 0.960777, -0.26526);
+vec3 cameraForward = vec3(0.280269, -0.277322, -0.91899);
 
 // vec3 cameraPos = vec3(0, 1, 4);
 // float cameraPitch = 0;
@@ -57,13 +57,13 @@ float ROTATION_SPEED = 90.0;
 // vec3 cameraUp = vec3(0, 1, 0);
 // vec3 cameraForward = vec3(0, 0, -1);
 
-vec3 cameraPos = vec3(-1.26427, 0.937832, -0.0606194);
-float cameraPitch = -11.0732;
-float cameraYaw = 77.8304;
-float cameraRoll = 0;
-vec3 cameraRight = vec3(0.210806, 0, 0.977528);
-vec3 cameraUp = vec3(0.187747, 0.981383, -0.0404881);
-vec3 cameraForward = vec3(0.959329, -0.192063, -0.206882);
+// vec3 cameraPos = vec3(-1.26427, 0.937832, -0.0606194);
+// float cameraPitch = -11.0732;
+// float cameraYaw = 77.8304;
+// float cameraRoll = 0;
+// vec3 cameraRight = vec3(0.210806, 0, 0.977528);
+// vec3 cameraUp = vec3(0.187747, 0.981383, -0.0404881);
+// vec3 cameraForward = vec3(0.959329, -0.192063, -0.206882);
 
 mat3 cameraRotation = mat3(cameraRight, cameraUp, -cameraForward);
 // float fov = 39.5978;
@@ -192,9 +192,9 @@ int main() {
     setSkyboxEquirectangular(RESOURCES_PATH "textures/rogland_clear_night_4k.png");
     skyboxFormat = 3;
 
-    // importAndSend(RESOURCES_PATH "models/tests/CornellBox/CornellBox-Original.obj");
+    importAndSend(RESOURCES_PATH "models/tests/CornellBox/CornellBox-Original.obj");
     // importAndSend(RESOURCES_PATH "models/tests/mis spheres.glb");
-    importAndSend(RESOURCES_PATH "models/tests/everything.glb");
+    // importAndSend(RESOURCES_PATH "models/tests/everything.glb");
     // importAndSend(RESOURCES_PATH "models/tests/roughness.glb");
     // importAndSend(RESOURCES_PATH "models/tests/refraction.glb");
     // importAndSend(RESOURCES_PATH "models/tests/fresnel.glb");
@@ -275,7 +275,7 @@ int main() {
             ImGui::Begin("Viewport");
             {
                 // Using a Child allow to fill all the space of the window.
-                // It also alows customization
+                // It also allows customization
                 ImGui::BeginChild("GameRender");
 
                 viewportFocused = ImGui::IsWindowFocused();
