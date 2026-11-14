@@ -471,7 +471,7 @@ vec3 diffuse_f(vec3 wo, vec3 wi, UsefulMaterial material) {
 
 vec3 transmissive_f(vec3 wo, vec3 wi, UsefulMaterial material) {
     if (sameHemisphere(wo, wi)) return vec3(0.0);
-    if (max(material.roughness.x, material.roughness.y) < 0.001 || material.ior == 1.0) return vec3(0.0);
+    if (max(material.roughness.x, material.roughness.y) < 0.001 || material.ior == material.iorOutside) return vec3(0.0);
 
     float cosTheta_o = wo.z;
     float cosTheta_i = wi.z;
@@ -502,7 +502,7 @@ vec3 entered_f(vec3 wo, vec3 wi, UsefulMaterial material) {
 
 vec3 reflective_f(vec3 wo, vec3 wi, UsefulMaterial material) {
     if (!sameHemisphere(wo, wi)) return vec3(0.0);
-    if (max(material.roughness.x, material.roughness.y) < 0.001 || material.ior == 1.0) return vec3(0.0);
+    if (max(material.roughness.x, material.roughness.y) < 0.001 || material.ior == material.iorOutside) return vec3(0.0);
 
     float cosTheta_o = wo.z;
     float cosTheta_i = wi.z;
@@ -561,8 +561,8 @@ BsdfSample diffuse_sample_f(vec3 wo, UsefulMaterial material) {
 }
 
 BsdfSample transmissive_sample_f(vec3 wo, vec3 wm, UsefulMaterial material) {
-    if (max(material.roughness.x, material.roughness.y) < 0.001 || material.ior == 1.0) {
-        vec3 wi = refractBetter(wo, vec3(0.0, 0.0, 1.0), 1.0, material.ior);
+    if (max(material.roughness.x, material.roughness.y) < 0.001 || material.ior == material.iorOutside) {
+        vec3 wi = refractBetter(wo, vec3(0.0, 0.0, 1.0), material.iorOutside, material.ior);
         if (wi == vec3(0.0)) return BsdfSample(vec3(0.0), vec3(0.0), 0.0, false, true);
 
         vec3 ft = material.albedo / abs(wi.z);
@@ -571,7 +571,7 @@ BsdfSample transmissive_sample_f(vec3 wo, vec3 wm, UsefulMaterial material) {
         vec3 wi = refractBetter(wo, wm, material.iorOutside, material.ior);
         if (sameHemisphere(wo, wi) || wi.z == 0 || wi == vec3(0.0)) return BsdfSample(vec3(0.0), vec3(0.0), 0.0, false, true);
 
-        float eta = material.ior;
+        float eta = material.ior / material.iorOutside;
         if (dot(wo, wm) < 0.0) eta = 1.0 / eta;
         float denom = pow(dot(wi, wm) + dot(wo, wm) / eta, 2);
         float dwm_dwi = abs(dot(wi, wm)) / denom;
@@ -598,7 +598,7 @@ BsdfSample entered_sample_f(vec3 wo, vec3 wm, UsefulMaterial material) {
 }
 
 BsdfSample reflective_sample_f(vec3 wo, vec3 wm, UsefulMaterial material) {
-    if (max(material.roughness.x, material.roughness.y) < 0.001 || material.ior == 1.0) {
+    if (max(material.roughness.x, material.roughness.y) < 0.001 || material.ior == material.iorOutside) {
         vec3 wi = vec3(-wo.x, -wo.y, wo.z);
         float fr = 1.0 / abs(wi.z);
         return BsdfSample(wi, vec3(fr), 1.0, true, false);
@@ -615,7 +615,7 @@ BsdfSample reflective_sample_f(vec3 wo, vec3 wm, UsefulMaterial material) {
 BsdfSample dielectric_sample_f(vec3 wo, UsefulMaterial material) {
     vec3 wm;
     float reflectedFraction;
-    if (max(material.roughness.x, material.roughness.y) < 0.001 || material.ior == 1.0) {
+    if (max(material.roughness.x, material.roughness.y) < 0.001 || material.ior == material.iorOutside) {
         wm = vec3(0.0, 0.0, 1.0);
         reflectedFraction = fresnelReflection(wo, wm, material.iorOutside, material.ior);
     } else {
@@ -787,10 +787,9 @@ vec3 trace(Ray cameraRay) {
         bool transmissive = material.metalness < 1.0 && material.transmission > 0.0;
         if (transmissive) {
             uint current = getHighestPriorityIgnoring(ray, NO_MODEL);
-            int currentPriority = (current == NO_MODEL) ? -1 : int(models[current].material.priority);
 
             if (entering) {
-                if (material.priority < currentPriority) {
+                if (current != NO_MODEL && material.priority < models[current].material.priority) {
                     addToIorList(ray, record.modelIdx);
                     ray.origin = record.pos + ray.dir * 0.001;
                     continue;

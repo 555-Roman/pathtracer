@@ -193,16 +193,19 @@ int main() {
     skyboxFormat = 1;
 
     importAndSend(RESOURCES_PATH "models/tests/CornellBox/CornellBox-Empty-RG.obj");
-    models[0].scale = vec3(0.1, 1.0, 0.1);
-    models[0].material.emissionStrength = 200.0;
     importAndSend(RESOURCES_PATH "models/tests/sphere.glb");
     models[models.size()-1].material.priority = 0;
     models[models.size()-1].material.metalness = 0.0;
     models[models.size()-1].material.transmission = 1.0;
     models[models.size()-1].material.ior = 1.5;
     models[models.size()-1].material.albedo = vec3(1.0);
-    models[models.size()-1].translation = vec3(0.45, 1.0, 0.0);
-    models[models.size()-1].scale = vec3(0.5);
+    models[models.size()-1].scale = vec3(0.2);
+    models[models.size()-1].translation = vec3(-0.25, 0.2, 0.0);
+    models[models.size()-1].material.albedo = vec3(1.0, 0.2, 0.2);
+    instantiate(models[models.size()-1], vec3(0.0, 0.2, 0.0), vec3(0.0), vec3(0.2));
+    models[models.size()-1].material.albedo = vec3(0.2, 1.0, 0.2);
+    instantiate(models[models.size()-1], vec3(0.25, 0.2, 0.0), vec3(0.0), vec3(0.2));
+    models[models.size()-1].material.albedo = vec3(0.2, 0.2, 1.0);
 
     sendModels();
 
