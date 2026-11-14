@@ -786,7 +786,7 @@ vec3 trace(Ray cameraRay) {
         bool entering = dot(-ray.dir, record.geometryNormal) > 0.0;
         bool transmissive = material.metalness < 1.0 && material.transmission > 0.0;
         if (transmissive) {
-            uint current = listHighest(ray, NO_MODEL);
+            uint current = getHighestPriorityIgnoring(ray, NO_MODEL);
             int currentPriority = (current == NO_MODEL) ? -1 : int(models[current].material.priority);
 
             if (entering) {
