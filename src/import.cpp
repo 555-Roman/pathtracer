@@ -180,7 +180,7 @@ Material getMeshMaterial(aiMesh* mesh, const aiScene* scene, const char* filePat
         ior,
         transmission,
         vec3(0.0, 0.0, 0.0),
-        0.0,
+        0,
         vec3(0.0, 0.0, 0.0),
         0.0,
         albedoTextureHandle,

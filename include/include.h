@@ -33,7 +33,7 @@ struct Material {
     float ior;
     float transmission;
     vec3 complexN;
-    float padding0;
+    uint priority;
     vec3 complexK;
     float padding1;
     GLuint64 albedoTextureHandle;
@@ -52,7 +52,7 @@ inline constexpr Material defaultMaterial = {
     1.5,
     0.0,
     vec3(0.0),
-    0.0,
+    0,
     vec3(0.0),
     0.0,
     0,

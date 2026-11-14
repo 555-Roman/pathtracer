@@ -5,6 +5,7 @@
 
 void instantiate(Model model, vec3 offset, vec3 rotation, vec3 scale, Material material);
 void instantiate(Model model, Material material);
+void instantiate(Model model, vec3 offset, vec3 rotation, vec3 scale);
 
 void sendModels();
 void sendModel(uint modelIndex);

@@ -5,9 +5,12 @@ in vec3 originalRayDir;
 
 out vec4 FragColor;
 
+#define IOR_LIST_SIZE 15
+#define NO_MODEL 0xFFFFFFFFu
 struct Ray {
     vec3 origin;
     vec3 dir;
+    uint indexList[IOR_LIST_SIZE];
 };
 
 struct Material {
@@ -20,7 +23,7 @@ struct Material {
     float ior;
     float transmission;
     vec3 complexN;
-    float padding0;
+    uint priority;
     vec3 complexK;
     float padding1;
     sampler2D albedoTextureHandle;
@@ -36,10 +39,12 @@ struct UsefulMaterial {
     vec2 roughness;
     float metalness;
     float ior;
+    float iorOutside;
     float transmission;
     vec3 shadingNormal;
     vec3 complexN;
     vec3 complexK;
+    uint priority;
 };
 
 struct Triangle {
@@ -84,6 +89,7 @@ struct HitRecord {
     vec3 interpolatedNormal;
     vec2 uv;
     uint triangleIdx;
+    uint modelIdx;
     Material material;
 };
 
@@ -273,6 +279,7 @@ HitRecord intersectScene(Ray ray) {
             closestRecord.interpolatedNormal = normalize(vec3(model.worldModelMatrix * vec4(closestRecord.interpolatedNormal, 0.0)));
             closestRecord.material = model.material;
             closestT = record.t;
+            closestRecord.modelIdx = i;
         }
     }
 
@@ -464,11 +471,11 @@ vec3 diffuse_f(vec3 wo, vec3 wi, UsefulMaterial material) {
 
 vec3 transmissive_f(vec3 wo, vec3 wi, UsefulMaterial material) {
     if (sameHemisphere(wo, wi)) return vec3(0.0);
-    if (max(material.roughness.x, material.roughness.y) < 0.001) return vec3(0.0);
+    if (max(material.roughness.x, material.roughness.y) < 0.001 || material.ior == 1.0) return vec3(0.0);
 
     float cosTheta_o = wo.z;
     float cosTheta_i = wi.z;
-    float etap = cosTheta_o > 0 ? material.ior : (1 / material.ior);
+    float etap = cosTheta_o > 0 ? (material.ior / material.iorOutside) : (material.iorOutside / material.ior);
     vec3 wm = wi * etap + wo;
     if (cosTheta_i == 0 || cosTheta_o == 0 || dot(wm, wm) == 0) return vec3(0.0);
     wm = normalize(wm);
@@ -477,7 +484,7 @@ vec3 transmissive_f(vec3 wo, vec3 wi, UsefulMaterial material) {
     if (dot(wm, wi) * cosTheta_i < 0 || dot(wm, wo) * cosTheta_o < 0)
         return vec3(0.0);
 
-    float reflectedFraction = fresnelReflection(wo, wm, 1.0, material.ior);
+    float reflectedFraction = fresnelReflection(wo, wm, material.iorOutside, material.ior);
 
     float denom = pow(dot(wi, wm) + dot(wo, wm) / etap, 2) * cosTheta_i * cosTheta_o;
     float ft = ggxD(wm, material.roughness) * (1 - reflectedFraction) * ggxG(wo, wi, material.roughness) * abs(dot(wi, wm) * dot(wo, wm) / denom);
@@ -495,7 +502,7 @@ vec3 entered_f(vec3 wo, vec3 wi, UsefulMaterial material) {
 
 vec3 reflective_f(vec3 wo, vec3 wi, UsefulMaterial material) {
     if (!sameHemisphere(wo, wi)) return vec3(0.0);
-    if (max(material.roughness.x, material.roughness.y) < 0.001) return vec3(0.0);
+    if (max(material.roughness.x, material.roughness.y) < 0.001 || material.ior == 1.0) return vec3(0.0);
 
     float cosTheta_o = wo.z;
     float cosTheta_i = wi.z;
@@ -507,7 +514,7 @@ vec3 reflective_f(vec3 wo, vec3 wi, UsefulMaterial material) {
     if (dot(wm, wi) * cosTheta_i < 0 || dot(wm, wo) * cosTheta_o < 0)
     return vec3(0.0);
 
-    float reflectedFraction = fresnelReflection(wo, wm, 1.0, material.ior);
+    float reflectedFraction = fresnelReflection(wo, wm, material.iorOutside, material.ior);
 
     float fr = ggxD(wm, material.roughness) * ggxG(wo, wi, material.roughness) * reflectedFraction / abs(4 * cosTheta_i * cosTheta_o);
     return vec3(fr);
@@ -530,9 +537,9 @@ vec3 conductor_f(vec3 wo, vec3 wi, UsefulMaterial material) {
 
     vec3 reflectionTint;
     if (material.complexN == vec3(0.0))
-        reflectionTint = schlickFresnel(wo, wm, 1.0, material.ior, material.albedo);
+        reflectionTint = schlickFresnel(wo, wm, material.iorOutside, material.ior, material.albedo);
     else
-        reflectionTint = fresnelConductor(wo, wm, 1.0, material.complexN, material.complexK);
+        reflectionTint = fresnelConductor(wo, wm, material.iorOutside, material.complexN, material.complexK);
 
     return ggxD(wm, material.roughness) * reflectionTint * ggxG(wo, wi, material.roughness) / (4 * cosTheta_i * cosTheta_o);
 }
@@ -554,14 +561,14 @@ BsdfSample diffuse_sample_f(vec3 wo, UsefulMaterial material) {
 }
 
 BsdfSample transmissive_sample_f(vec3 wo, vec3 wm, UsefulMaterial material) {
-    if (max(material.roughness.x, material.roughness.y) < 0.001) {
+    if (max(material.roughness.x, material.roughness.y) < 0.001 || material.ior == 1.0) {
         vec3 wi = refractBetter(wo, vec3(0.0, 0.0, 1.0), 1.0, material.ior);
         if (wi == vec3(0.0)) return BsdfSample(vec3(0.0), vec3(0.0), 0.0, false, true);
 
         vec3 ft = material.albedo / abs(wi.z);
         return BsdfSample(wi, ft, 1.0, true, true);
     } else {
-        vec3 wi = refractBetter(wo, wm, 1.0, material.ior);
+        vec3 wi = refractBetter(wo, wm, material.iorOutside, material.ior);
         if (sameHemisphere(wo, wi) || wi.z == 0 || wi == vec3(0.0)) return BsdfSample(vec3(0.0), vec3(0.0), 0.0, false, true);
 
         float eta = material.ior;
@@ -591,7 +598,7 @@ BsdfSample entered_sample_f(vec3 wo, vec3 wm, UsefulMaterial material) {
 }
 
 BsdfSample reflective_sample_f(vec3 wo, vec3 wm, UsefulMaterial material) {
-    if (max(material.roughness.x, material.roughness.y) < 0.001) {
+    if (max(material.roughness.x, material.roughness.y) < 0.001 || material.ior == 1.0) {
         vec3 wi = vec3(-wo.x, -wo.y, wo.z);
         float fr = 1.0 / abs(wi.z);
         return BsdfSample(wi, vec3(fr), 1.0, true, false);
@@ -608,12 +615,12 @@ BsdfSample reflective_sample_f(vec3 wo, vec3 wm, UsefulMaterial material) {
 BsdfSample dielectric_sample_f(vec3 wo, UsefulMaterial material) {
     vec3 wm;
     float reflectedFraction;
-    if (max(material.roughness.x, material.roughness.y) < 0.001) {
+    if (max(material.roughness.x, material.roughness.y) < 0.001 || material.ior == 1.0) {
         wm = vec3(0.0, 0.0, 1.0);
-        reflectedFraction = fresnelReflection(wo, wm, 1.0, material.ior);
+        reflectedFraction = fresnelReflection(wo, wm, material.iorOutside, material.ior);
     } else {
         wm = sampleGgxVndfNormal(wo, material.roughness);
-        reflectedFraction = fresnelReflection(wo, wm, 1.0, material.ior);
+        reflectedFraction = fresnelReflection(wo, wm, material.iorOutside, material.ior);
     }
 
     if (randomUniform() < reflectedFraction) {
@@ -635,9 +642,9 @@ BsdfSample conductor_sample_f(vec3 wo, UsefulMaterial material) {
 
         vec3 reflectionTint;
         if (material.complexN == vec3(0.0))
-            reflectionTint = schlickFresnel(wo, vec3(0.0, 0.0, 1.0), 1.0, material.ior, material.albedo);
+            reflectionTint = schlickFresnel(wo, vec3(0.0, 0.0, 1.0), material.iorOutside, material.ior, material.albedo);
         else
-            reflectionTint = fresnelConductor(wo, vec3(0.0, 0.0, 1.0), 1.0, material.complexN, material.complexK);
+            reflectionTint = fresnelConductor(wo, vec3(0.0, 0.0, 1.0), material.iorOutside, material.complexN, material.complexK);
 
         return BsdfSample(wi, reflectionTint / abs(wi.z), 1, true, false);
     }
@@ -652,9 +659,9 @@ BsdfSample conductor_sample_f(vec3 wo, UsefulMaterial material) {
 
     vec3 reflectionTint;
     if (material.complexN == vec3(0.0))
-        reflectionTint = schlickFresnel(wo, wm, 1.0, material.ior, material.albedo);
+        reflectionTint = schlickFresnel(wo, wm, material.iorOutside, material.ior, material.albedo);
     else
-        reflectionTint = fresnelConductor(wo, wm, 1.0, material.complexN, material.complexK);
+        reflectionTint = fresnelConductor(wo, wm, material.iorOutside, material.complexN, material.complexK);
 
     vec3 f = ggxD(wm, material.roughness) * reflectionTint * ggxG(wo, wi, material.roughness) / (4 * cosTheta_i * cosTheta_o);
 
@@ -687,10 +694,12 @@ UsefulMaterial getMaterial(HitRecord record) {
     useful.roughness = vec2(material.roughness * material.roughness);
     useful.metalness = material.metalness;
     useful.ior = material.ior;
+    useful.iorOutside = 1.0;
     useful.transmission = material.transmission;
     useful.complexN = material.complexN;
     useful.complexK = material.complexK;
     useful.shadingNormal = vec3(0.0, 0.0, 1.0);
+    useful.priority = material.priority;
 
     if (uvec2(material.albedoTextureHandle) != uvec2(0)) {
         vec4 color = texture(material.albedoTextureHandle, record.uv);
@@ -713,24 +722,88 @@ UsefulMaterial getMaterial(HitRecord record) {
     return useful;
 }
 
+
+void clearIorList(inout Ray ray) {
+    for (uint i = 0; i < IOR_LIST_SIZE; i++) {
+        ray.indexList[i] = NO_MODEL;
+    }
+}
+bool addToIorList(inout Ray ray, uint modelIdx) {
+    for (uint i = 0; i < IOR_LIST_SIZE; i++) {
+        if (ray.indexList[i] == NO_MODEL) {
+            ray.indexList[i] = modelIdx;
+            return true;
+        }
+    }
+    return false;
+}
+void removeFromIorList(inout Ray ray, uint modelIdx) {
+    for (uint i = 0; i < IOR_LIST_SIZE; i++) {
+        if (ray.indexList[i] == modelIdx) {
+            ray.indexList[i] = NO_MODEL;
+            return;
+        }
+    }
+}
+uint getHighestPriorityIgnoring(Ray ray, uint toIgnore) {
+    uint best = NO_MODEL;
+    int bestPriority = -1;
+    for (uint i = 0; i < IOR_LIST_SIZE; i++) {
+        uint m = ray.indexList[i];
+        if (m == NO_MODEL || m == toIgnore) {
+            continue;
+        }
+
+        int p = int(models[m].material.priority);
+        if (p > bestPriority) {
+            bestPriority = p;
+            best = m;
+        }
+    }
+    return best;
+}
+float getHighestIorIgnoring(Ray ray, uint toIgnore) {
+    uint m = getHighestPriorityIgnoring(ray, toIgnore);
+    return m == NO_MODEL ? 1.0 : models[m].material.ior;
+}
+
+
 uniform int maxBounces;
 vec3 trace(Ray cameraRay) {
     Ray ray = cameraRay;
     vec3 incomingLight = vec3(0.0);
     vec3 rayColour = vec3(1.0);
 
-    for (uint bounce = 0; bounce <= maxBounces; bounce++) {
+    uint bounce = 0;
+    while (bounce <= maxBounces) {
         HitRecord record = intersectScene(ray);
         if (!record.hit) {
             incomingLight += getSkybox(ray) * rayColour;
             break;
         }
-//        if (displayDebug > 0)
-//            return record.interpolatedNormal * .5 + .5;
-//            return record.geometryNormal * .5 + .5;
-//            return getMaterial(record).shadingNormal * .5 + .5;
         UsefulMaterial material = getMaterial(record);
 
+        bool entering = dot(-ray.dir, record.geometryNormal) > 0.0;
+        bool transmissive = material.metalness < 1.0 && material.transmission > 0.0;
+        if (transmissive) {
+            uint current = listHighest(ray, NO_MODEL);
+            int currentPriority = (current == NO_MODEL) ? -1 : int(models[current].material.priority);
+
+            if (entering) {
+                if (material.priority < currentPriority) {
+                    addToIorList(ray, record.modelIdx);
+                    ray.origin = record.pos + ray.dir * 0.001;
+                    continue;
+                }
+            } else {
+                if (current != record.modelIdx) {
+                    removeFromIorList(ray, record.modelIdx);
+                    ray.origin = record.pos + ray.dir * 0.001;
+                    continue;
+                }
+            }
+            material.iorOutside = getHighestIorIgnoring(ray, record.modelIdx);
+        }
 
         vec3 N = material.shadingNormal;
         vec3 T, B;
@@ -743,8 +816,6 @@ vec3 trace(Ray cameraRay) {
 
         if (material.emissionStrength > 0.0) break;
 
-        #define BSDF_SAMPLING
-#ifdef BSDF_SAMPLING
         BsdfSample bsdfSample = bsdf_sample_f(woLocal, material);
         if (bsdfSample.wi == vec3(0.0) || bsdfSample.f == vec3(0.0) || bsdfSample.pdf == 0.0) break;
         if (any(isnan(bsdfSample.f))) break;
@@ -756,25 +827,20 @@ vec3 trace(Ray cameraRay) {
         if (rayColour == vec3(0.0)) break;
 
         vec3 offset = record.geometryNormal * 0.001 * sign(dot(record.geometryNormal, wo));
-        if (bsdfSample.transmitted)
+        if (bsdfSample.transmitted) {
             offset = -offset;
+            if (entering) {
+                if (!addToIorList(ray, record.modelIdx)) break;
+            } else {
+                removeFromIorList(ray, record.modelIdx);
+            }
+        }
 
         ray.origin = record.pos + offset;
         vec3 wiWorld = normalize(bsdfSample.wi.x * T + bsdfSample.wi.y * B + bsdfSample.wi.z * N);
         ray.dir = wiWorld;
-#else
-        vec3 wp = randomSphere();
-        vec3 wpLocal = normalize(vec3(dot(wp, T), dot(wp, B), dot(wp, N)));
-        float wpPdf = 1.0 / (4.0 * 3.1415926);
 
-        vec3 fcos = bsdf_f(woLocal, wpLocal, material) * abs(dot(wp, material.shadingNormal));
-
-        rayColour *= fcos / wpPdf;
-        if (rayColour == vec3(0.0)) break;
-
-        ray.origin = record.pos + record.geometryNormal * 0.001 * sign(dot(wp, record.geometryNormal));
-        ray.dir = wp;
-#endif
+        bounce++;
     }
 
     return incomingLight;
@@ -812,7 +878,10 @@ void main() {
     uvec2 FragCoord = uvec2(gl_FragCoord.xy * halfScreenSize) * 2;
     rngState = FragCoord.y * halfScreenSize.x * 2 + FragCoord.x + currentFrame * 719393u;
 
-    Ray ray = {cameraPos, normalize(originalRayDir)};
+    Ray ray;
+    ray.origin= cameraPos;
+    ray.dir = normalize(originalRayDir);
+    clearIorList(ray);
 
     vec3 rayColour = vec3(0.0);
     for (uint i = 0; i < samples; i++) {

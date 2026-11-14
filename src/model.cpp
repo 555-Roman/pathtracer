@@ -17,6 +17,10 @@ void instantiate(Model model, Material material) {
     instantiate(model, vec3(0.0), vec3(0.0), vec3(1.0), material);
 }
 
+void instantiate(Model model, vec3 translation, vec3 rotation, vec3 scale) {
+    instantiate(model, translation, rotation, scale, model.material);
+}
+
 
 void sendModels() {
     gpuModels.resize(models.size());

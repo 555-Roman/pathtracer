@@ -49,21 +49,21 @@ float ROTATION_SPEED = 90.0;
 // vec3 cameraUp = vec3(0.0808977, 0.960777, -0.26526);
 // vec3 cameraForward = vec3(0.280269, -0.277322, -0.91899);
 
-// vec3 cameraPos = vec3(0, 1, 4);
-// float cameraPitch = 0;
-// float cameraYaw = 0;
-// float cameraRoll = 0;
-// vec3 cameraRight = vec3(1, 0, 0);
-// vec3 cameraUp = vec3(0, 1, 0);
-// vec3 cameraForward = vec3(0, 0, -1);
-
-vec3 cameraPos = vec3(-1.26427, 0.937832, -0.0606194);
-float cameraPitch = -11.0732;
-float cameraYaw = 77.8304;
+vec3 cameraPos = vec3(0, 1, 2);
+float cameraPitch = 0;
+float cameraYaw = 0;
 float cameraRoll = 0;
-vec3 cameraRight = vec3(0.210806, 0, 0.977528);
-vec3 cameraUp = vec3(0.187747, 0.981383, -0.0404881);
-vec3 cameraForward = vec3(0.959329, -0.192063, -0.206882);
+vec3 cameraRight = vec3(1, 0, 0);
+vec3 cameraUp = vec3(0, 1, 0);
+vec3 cameraForward = vec3(0, 0, -1);
+
+// vec3 cameraPos = vec3(-1.26427, 0.937832, -0.0606194);
+// float cameraPitch = -11.0732;
+// float cameraYaw = 77.8304;
+// float cameraRoll = 0;
+// vec3 cameraRight = vec3(0.210806, 0, 0.977528);
+// vec3 cameraUp = vec3(0.187747, 0.981383, -0.0404881);
+// vec3 cameraForward = vec3(0.959329, -0.192063, -0.206882);
 
 mat3 cameraRotation = mat3(cameraRight, cameraUp, -cameraForward);
 // float fov = 39.5978;
@@ -190,11 +190,25 @@ int main() {
 
 
     setSkyboxEquirectangular(RESOURCES_PATH "textures/rogland_clear_night_4k.png");
-    skyboxFormat = 3;
+    skyboxFormat = 1;
+
+    importAndSend(RESOURCES_PATH "models/tests/CornellBox/CornellBox-Empty-RG.obj");
+    models[0].scale = vec3(0.1, 1.0, 0.1);
+    models[0].material.emissionStrength = 200.0;
+    importAndSend(RESOURCES_PATH "models/tests/sphere.glb");
+    models[models.size()-1].material.priority = 0;
+    models[models.size()-1].material.metalness = 0.0;
+    models[models.size()-1].material.transmission = 1.0;
+    models[models.size()-1].material.ior = 1.5;
+    models[models.size()-1].material.albedo = vec3(1.0);
+    models[models.size()-1].translation = vec3(0.45, 1.0, 0.0);
+    models[models.size()-1].scale = vec3(0.5);
+
+    sendModels();
 
     // importAndSend(RESOURCES_PATH "models/tests/CornellBox/CornellBox-Original.obj");
     // importAndSend(RESOURCES_PATH "models/tests/mis spheres.glb");
-    importAndSend(RESOURCES_PATH "models/tests/everything.glb");
+    // importAndSend(RESOURCES_PATH "models/tests/everything.glb");
     // importAndSend(RESOURCES_PATH "models/tests/roughness.glb");
     // importAndSend(RESOURCES_PATH "models/tests/refraction.glb");
     // importAndSend(RESOURCES_PATH "models/tests/fresnel.glb");
@@ -246,8 +260,9 @@ int main() {
     bool fullscreenBenchmarks = false;
 
     bool useAspectRatio = true;
-    float aspectRatioX = 16.0;
+    float aspectRatioX = 9.0;
     float aspectRatioY = 9.0;
+    aspectRatio = aspectRatioX / aspectRatioY;
 
     bool takeScreenShot = false;
     int screenShotSamples = 1;
@@ -523,6 +538,10 @@ int main() {
                         currentFrame = 0;
                     }
                     if (ImGui::DragFloat("Transmission", &material.transmission, 0.01, 0.0, 1.0)) {
+                        sendModel(selectedModelIndex);
+                        currentFrame = 0;
+                    }
+                    if (ImGui::DragInt("Priority", (int*)&material.priority, 0.01, 0.0, 1.0)) {
                         sendModel(selectedModelIndex);
                         currentFrame = 0;
                     }
